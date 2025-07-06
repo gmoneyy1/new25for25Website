@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Upload, Calendar, MapPin, Plane, Clock, ArrowRight, Download, Search, Trash2, Database } from 'lucide-react';
 import Papa from 'papaparse';
