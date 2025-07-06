@@ -6,10 +6,8 @@ import Papa from 'papaparse';
 
 const JetBlueOptimizer = () => {
   const [csvData, setCsvData] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState(null);
-  const [csvFileName, setCsvFileName] = useState(null);
-  const [csvFileSize, setCsvFileSize] = useState(null);
   const [config, setConfig] = useState({
     startDate: '2025-06-20',
     startTime: '19:00',
@@ -21,65 +19,110 @@ const JetBlueOptimizer = () => {
     minConnectionTime: 60
   });
 
-  // Load saved CSV data on component mount
-  useEffect(() => {
-    const savedCsvData = sessionStorage.getItem('jetblue-csv-data');
-    const savedFileName = sessionStorage.getItem('jetblue-csv-filename');
-    const savedFileSize = sessionStorage.getItem('jetblue-csv-filesize');
-    
-    if (savedCsvData) {
-      try {
-        const parsedData = JSON.parse(savedCsvData);
-        setCsvData(parsedData);
-        setCsvFileName(savedFileName);
-        setCsvFileSize(savedFileSize ? parseInt(savedFileSize) : null);
-        console.log('Loaded saved CSV data:', parsedData.length, 'flights');
-      } catch (error) {
-        console.error('Error loading saved CSV data:', error);
-        // Clear corrupted data
-        sessionStorage.removeItem('jetblue-csv-data');
-        sessionStorage.removeItem('jetblue-csv-filename');
-        sessionStorage.removeItem('jetblue-csv-filesize');
-      }
-    }
-  }, []);
+  const csvUrl = '/api/schedule';
 
-  const saveCsvData = (data, fileName, fileSize) => {
+  // Load CSV data automatically on component mount (invisible to users)
+  useEffect(() => {
+    const loadCsvData = async () => {
+      const savedCsvData = sessionStorage.getItem('jetblue-csv-data');
+      
+      if (savedCsvData) {
+        try {
+          const parsedData = JSON.parse(savedCsvData);
+          setCsvData(parsedData);
+          setIsLoading(false);
+          console.log('Loaded saved CSV data:', parsedData.length, 'flights');
+          return; // Use cached data if available
+        } catch (error) {
+          console.error('Error loading saved CSV data:', error);
+          // Clear corrupted data
+          sessionStorage.removeItem('jetblue-csv-data');
+        }
+      }
+      
+      // If no cached data, fetch from API (invisible loading)
+      try {
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (result) => {
+            setCsvData(result.data);
+            saveCsvData(result.data);
+            console.log('CSV loaded and saved:', result.data.length, 'flights');
+            setIsLoading(false);
+          },
+          error: (error) => {
+            console.error('Error parsing CSV:', error);
+            setIsLoading(false);
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching CSV:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadCsvData();
+  }, [csvUrl]);
+
+  const fetchCsvData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(csvUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const csvText = await response.text();
+      
+      Papa.parse(csvText, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: (result) => {
+          setCsvData(result.data);
+          saveCsvData(result.data);
+          console.log('CSV loaded and saved:', result.data.length, 'flights');
+          setIsLoading(false);
+        },
+        error: (error) => {
+          console.error('Error parsing CSV:', error);
+          setIsLoading(false);
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching CSV:', error);
+      setIsLoading(false);
+    }
+  }, [csvUrl]);
+
+  const saveCsvData = (data) => {
     try {
       sessionStorage.setItem('jetblue-csv-data', JSON.stringify(data));
-      sessionStorage.setItem('jetblue-csv-filename', fileName);
-      sessionStorage.setItem('jetblue-csv-filesize', fileSize.toString());
     } catch (error) {
       console.error('Error saving CSV data:', error);
       // If storage is full, try to clear old data and retry
       sessionStorage.clear();
       try {
         sessionStorage.setItem('jetblue-csv-data', JSON.stringify(data));
-        sessionStorage.setItem('jetblue-csv-filename', fileName);
-        sessionStorage.setItem('jetblue-csv-filesize', fileSize.toString());
       } catch (retryError) {
         console.error('Error saving CSV data after clearing storage:', retryError);
-        alert('Unable to save CSV data. File may be too large for browser storage.');
       }
     }
   };
 
   const clearSavedData = () => {
     sessionStorage.removeItem('jetblue-csv-data');
-    sessionStorage.removeItem('jetblue-csv-filename');
-    sessionStorage.removeItem('jetblue-csv-filesize');
     setCsvData(null);
-    setCsvFileName(null);
-    setCsvFileSize(null);
     setResults(null);
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleFileUpload = useCallback((event) => {
@@ -123,10 +166,10 @@ const JetBlueOptimizer = () => {
       return;
     }
 
-    setIsProcessing(true);
+    setIsLoading(true);
     
     // Simulate processing delay for better UX
-    setTimeout(() => {
+    const processingTimeout = setTimeout(() => {
       try {
         const startDateTime = parseDateTime(config.startDate, config.startTime);
         const endDateTime = parseDateTime(config.endDate, config.endTime);
@@ -148,7 +191,7 @@ const JetBlueOptimizer = () => {
 
         if (validFlights.length === 0) {
           setResults({ error: 'No valid flights found in the specified time window' });
-          setIsProcessing(false);
+          setIsLoading(false);
           return;
         }
 
@@ -258,21 +301,21 @@ const JetBlueOptimizer = () => {
 
         // Calculate results
         if (bestPath.length > 0) {
-          const totalDistance = bestPath.reduce((sum, flight) => sum + (flight['Distance (KM)'] || 0), 0);
+          const totalDistanceKm = bestPath.reduce((sum, flight) => sum + (flight['Distance (KM)'] || 0), 0);
+          const totalDistanceMiles = Math.round(totalDistanceKm * 0.621371); // Convert km to miles
           const totalDuration = bestPath.reduce((sum, flight) => sum + (flight['Elapsed Minutes'] || 0), 0);
           
-          const allAirportsInPath = new Set();
-          bestPath.forEach(flight => {
-            allAirportsInPath.add(flight.Origin);
-            allAirportsInPath.add(flight.Destination);
-          });
-          const newAirportsVisited = [...allAirportsInPath].filter(airport => !visitedAirports.has(airport));
+          // Calculate new airports visited - only count destinations that are new
+          const newAirportsVisited = bestPath
+            .map(flight => flight.Destination)
+            .filter(destination => !visitedAirports.has(destination))
+            .filter((destination, index, array) => array.indexOf(destination) === index); // Remove duplicates
 
           setResults({
             path: bestPath,
             totalFlights: bestPath.length,
             newAirportsVisited,
-            totalDistance,
+            totalDistance: totalDistanceMiles,
             totalDuration,
             iterations
           });
@@ -285,7 +328,7 @@ const JetBlueOptimizer = () => {
         setResults({ error: 'An error occurred during optimization: ' + error.message });
       }
       
-      setIsProcessing(false);
+      setIsLoading(false);
     }, 100);
   }, [csvData, config]);
 
@@ -319,63 +362,11 @@ const JetBlueOptimizer = () => {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <Upload className="mr-2" size={20} />
-                Upload & Configure
+                <Calendar className="mr-2" size={20} />
+                Route Configuration
               </h2>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    JetBlue Schedule CSV
-                  </label>
-                  
-                  {csvData ? (
-                    <div className="space-y-3">
-                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <Database className="text-green-600 mr-2" size={20} />
-                            <div>
-                              <p className="text-sm font-medium text-green-800">
-                                {csvFileName || 'CSV Data Loaded'}
-                              </p>
-                              <p className="text-xs text-green-600">
-                                {csvData.length.toLocaleString()} flights
-                                {csvFileSize && ` • ${formatFileSize(csvFileSize)}`}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={clearSavedData}
-                            className="text-red-600 hover:text-red-800 p-1"
-                            title="Clear saved data"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600 mb-2">
-                          Want to upload a different file?
-                        </p>
-                        <input
-                          type="file"
-                          accept=".csv"
-                          onChange={handleFileUpload}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileUpload}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  )}
-                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -477,13 +468,13 @@ const JetBlueOptimizer = () => {
 
                 <button
                   onClick={optimizeRoute}
-                  disabled={!csvData || isProcessing}
+                  disabled={!csvData || isLoading}
                   className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  {isProcessing ? (
+                  {isLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Optimizing...
+                      Loading Data...
                     </>
                   ) : (
                     <>
@@ -507,7 +498,7 @@ const JetBlueOptimizer = () => {
               {!results && (
                 <div className="text-center py-12 text-gray-500">
                   <MapPin size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>Upload a CSV file and click "Optimize Route" to see results</p>
+                  <p>Configure your route parameters and click "Optimize Route" to see results</p>
                 </div>
               )}
 
@@ -532,7 +523,7 @@ const JetBlueOptimizer = () => {
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-purple-600">{results.totalDistance.toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">Total KM</p>
+                        <p className="text-sm text-gray-600">Total Miles</p>
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-orange-600">{Math.round(results.totalDuration / 60)}</p>
@@ -566,7 +557,7 @@ const JetBlueOptimizer = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">{flight['Distance (KM)']}km | {flight['Elapsed Minutes']}min</p>
+                            <p className="text-sm text-gray-600">{Math.round((flight['Distance (KM)'] || 0) * 0.621371)}mi | {flight['Elapsed Minutes']}min</p>
                           </div>
                         </div>
                         <div className="mt-2 flex items-center">
