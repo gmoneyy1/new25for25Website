@@ -65,7 +65,7 @@ If you want to run this project locally:
 
 ## Contributing
 
-We welcome contributions to improve this template project! Please feel free to submit issues or pull requests.
+We welcome contributions to improve this template project! Please feel free to submit issues or pull requests. this is george
 
 ## Support
 
