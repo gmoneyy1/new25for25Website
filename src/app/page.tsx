@@ -301,21 +301,21 @@ const JetBlueOptimizer = () => {
 
         // Calculate results
         if (bestPath.length > 0) {
-          const totalDistance = bestPath.reduce((sum, flight) => sum + (flight['Distance (KM)'] || 0), 0);
+          const totalDistanceKm = bestPath.reduce((sum, flight) => sum + (flight['Distance (KM)'] || 0), 0);
+          const totalDistanceMiles = Math.round(totalDistanceKm * 0.621371); // Convert km to miles
           const totalDuration = bestPath.reduce((sum, flight) => sum + (flight['Elapsed Minutes'] || 0), 0);
           
-          const allAirportsInPath = new Set();
-          bestPath.forEach(flight => {
-            allAirportsInPath.add(flight.Origin);
-            allAirportsInPath.add(flight.Destination);
-          });
-          const newAirportsVisited = [...allAirportsInPath].filter(airport => !visitedAirports.has(airport));
+          // Calculate new airports visited - only count destinations that are new
+          const newAirportsVisited = bestPath
+            .map(flight => flight.Destination)
+            .filter(destination => !visitedAirports.has(destination))
+            .filter((destination, index, array) => array.indexOf(destination) === index); // Remove duplicates
 
           setResults({
             path: bestPath,
             totalFlights: bestPath.length,
             newAirportsVisited,
-            totalDistance,
+            totalDistance: totalDistanceMiles,
             totalDuration,
             iterations
           });
@@ -523,7 +523,7 @@ const JetBlueOptimizer = () => {
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-purple-600">{results.totalDistance.toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">Total KM</p>
+                        <p className="text-sm text-gray-600">Total Miles</p>
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-orange-600">{Math.round(results.totalDuration / 60)}</p>
@@ -557,7 +557,7 @@ const JetBlueOptimizer = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">{flight['Distance (KM)']}km | {flight['Elapsed Minutes']}min</p>
+                            <p className="text-sm text-gray-600">{Math.round((flight['Distance (KM)'] || 0) * 0.621371)}mi | {flight['Elapsed Minutes']}min</p>
                           </div>
                         </div>
                         <div className="mt-2 flex items-center">
