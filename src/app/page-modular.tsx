@@ -8,7 +8,7 @@ import { RouteConfig, Results } from '../lib/types';
 import { optimizeRoute, getApiStatus } from '../lib/apiService';
 import { validateRouteConfig, FormErrors } from '../lib/formValidation';
 
-const JetBlueOptimizer = () => {
+const JetBlueOptimizerModular = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<Results>(null);
   const [apiStatus, setApiStatus] = useState<{ allAvailable: boolean; schedule: any; optimize: any } | null>(null);
@@ -190,4 +190,4 @@ const JetBlueOptimizer = () => {
   );
 };
 
-export default JetBlueOptimizer;
+export default JetBlueOptimizerModular; 

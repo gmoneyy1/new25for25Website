@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { RouteForm } from '../components/forms/RouteForm';
-import { QuickSettingsForm } from '../components/forms/QuickSettingsForm';
-import { ResultsPage } from '../components/results/ResultsPage';
+import { RouteConfigPanel } from '../components/RouteConfig';
+import { ResultsPanel } from '../components/ResultsPanel';
 import { RouteConfig, Results } from '../lib/types';
-import { optimizeRoute, getApiStatus } from '../lib/apiService';
-import { validateRouteConfig, FormErrors } from '../lib/formValidation';
+import { fetchFlightSchedule, optimizeRoute, getApiStatus } from '../lib/apiService';
+import { saveCsvData, loadCsvData, clearCsvData } from '../lib/storageUtils';
 
 const JetBlueOptimizer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<Results>(null);
   const [apiStatus, setApiStatus] = useState<{ allAvailable: boolean; schedule: any; optimize: any } | null>(null);
-  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [config, setConfig] = useState<RouteConfig>({
     startDate: '2025-06-20',
     startTime: '19:00',
@@ -51,23 +49,9 @@ const JetBlueOptimizer = () => {
     checkApiStatus();
   }, []);
 
-  // Validate form when config changes
-  useEffect(() => {
-    const errors = validateRouteConfig(config);
-    setFormErrors(errors);
-  }, [config]);
-
   const handleOptimizeRoute = useCallback(async () => {
     if (!apiStatus?.allAvailable) {
       alert('API endpoints are not available. Please check the server status.');
-      return;
-    }
-
-    // Validate form before submitting
-    const errors = validateRouteConfig(config);
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      alert('Please fix the form errors before optimizing.');
       return;
     }
 
@@ -88,10 +72,10 @@ const JetBlueOptimizer = () => {
     console.log('Download completed');
   }, []);
 
-  const handleOptimizeAgain = useCallback(() => {
+  const handleClearData = useCallback(() => {
+    clearCsvData();
     setResults(null);
-    handleOptimizeRoute();
-  }, [handleOptimizeRoute]);
+  }, []);
 
   if (isLoading) {
     return (
@@ -107,7 +91,6 @@ const JetBlueOptimizer = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             JetBlue 25for25 Route Optimizer
@@ -131,7 +114,6 @@ const JetBlueOptimizer = () => {
           </div>
         </div>
 
-        {/* API Warning */}
         {!apiStatus?.allAvailable && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
             <div className="flex">
@@ -156,32 +138,23 @@ const JetBlueOptimizer = () => {
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Configuration Panel */}
-          <div className="lg:col-span-1 space-y-6">
-            <RouteForm
+          <div className="lg:col-span-1">
+            <RouteConfigPanel
               config={config}
               onConfigChange={setConfig}
               onOptimize={handleOptimizeRoute}
               isLoading={isLoading}
               hasData={apiStatus?.allAvailable || false}
-              errors={formErrors}
-            />
-            
-            <QuickSettingsForm
-              config={config}
-              onConfigChange={setConfig}
             />
           </div>
 
           {/* Results Panel */}
-          <div className="lg:col-span-3">
-            <ResultsPage
+          <div className="lg:col-span-2">
+            <ResultsPanel
               results={results}
               onDownload={handleDownload}
-              onOptimizeAgain={handleOptimizeAgain}
-              isLoading={isLoading}
             />
           </div>
         </div>
@@ -190,4 +163,4 @@ const JetBlueOptimizer = () => {
   );
 };
 
-export default JetBlueOptimizer;
+export default JetBlueOptimizer; 
