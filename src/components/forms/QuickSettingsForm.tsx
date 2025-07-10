@@ -116,7 +116,7 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
             <MapPin className="mr-2" size={16} />
             Airport Presets
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {Object.entries(airportPresets).map(([key, preset]) => (
               <button
                 key={key}
@@ -124,7 +124,7 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
                 className="text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
               >
                 <div className="font-medium text-gray-900">{preset.name}</div>
-                <div className="text-xs text-gray-600">{preset.airports}</div>
+                <div className="text-xs text-gray-600 break-all">{preset.airports}</div>
               </button>
             ))}
           </div>
