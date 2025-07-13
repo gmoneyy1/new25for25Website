@@ -3,13 +3,17 @@ import { parseDateTime, minutesToMilliseconds, isValidDate } from './dateUtils';
 import { kilometersToMiles } from './distanceUtils';
 
 /**
- * Calculate heuristic value for A* search
+ * Calculate heuristic value for A* search with multi-objective optimization
  * @param visited - Set of visited airports
  * @param allNew - Set of all possible new airports
- * @returns Heuristic score
+ * @param totalDuration - Current total duration in minutes
+ * @returns Heuristic score (prioritizes unique airports, then minimizes duration)
  */
-export const calculateHeuristic = (visited: Set<string>, allNew: Set<string>): number => {
-  return (allNew.size - visited.size) * 60;
+export const calculateHeuristic = (visited: Set<string>, allNew: Set<string>, totalDuration: number = 0): number => {
+  const remainingAirports = allNew.size - visited.size;
+  const airportScore = remainingAirports * 1000; // Primary objective: unique airports (high weight)
+  const durationPenalty = totalDuration * 0.1; // Secondary objective: minimize duration (low weight)
+  return airportScore + durationPenalty;
 };
 
 /**
@@ -94,6 +98,27 @@ export const calculatePathMetrics = (path: Flight[]) => {
 };
 
 /**
+ * Calculate multi-objective score for route optimization
+ * @param visitedCount - Number of unique airports visited
+ * @param totalDuration - Total duration in minutes
+ * @param maxPossibleAirports - Maximum possible airports that can be visited
+ * @returns Multi-objective score (lower is better)
+ */
+export const calculateMultiObjectiveScore = (
+  visitedCount: number, 
+  totalDuration: number, 
+  maxPossibleAirports: number
+): number => {
+  // Primary objective: maximize unique airports (negative for minimization in A*)
+  const airportScore = -(visitedCount * 10000);
+  
+  // Secondary objective: minimize duration (normalized to 0-1000 range)
+  const normalizedDuration = Math.min(totalDuration / 1440, 1) * 1000; // Normalize by 24 hours
+  
+  return airportScore + normalizedDuration;
+};
+
+/**
  * Optimize route using A* search algorithm
  * @param flights - Array of all flights
  * @param config - Route configuration
@@ -118,11 +143,12 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     const allDestinations = new Set(validFlights.map(f => f.Destination));
     const newAirports = new Set([...allDestinations].filter(dest => !visitedAirports.has(dest)));
 
-    // A* search implementation
+    // A* search implementation with multi-objective optimization
     const heap: SearchState[] = [];
     const visited = new Map<string, number>();
     let bestPath: Flight[] = [];
     let maxVisited = 0;
+    let bestDuration = Infinity;
     let counter = 0;
 
     const startDateTime = parseDateTime(config.startDate, config.startTime);
@@ -136,19 +162,25 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
           visitedSet.add(flight.Destination);
         }
         
-        const score = -visitedSet.size + calculateHeuristic(visitedSet, newAirports);
+        const flightDuration = flight['Elapsed Minutes'] || 0;
+        const score = calculateMultiObjectiveScore(visitedSet.size, flightDuration, newAirports.size);
         heap.push({
           score,
           counter: counter++,
           path: [flight],
           visitedSet,
-          arrivalTime: new Date(flight['Arrival Datetime'])
+          arrivalTime: new Date(flight['Arrival Datetime']),
+          totalDuration: flightDuration
         });
       }
     });
 
-    // Sort heap by score
-    heap.sort((a, b) => a.score - b.score);
+    // Sort heap by score, then by duration, then by counter for deterministic ordering
+    heap.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
+      return a.counter - b.counter;
+    });
 
     let iterations = 0;
     const maxIterations = 5000; // Prevent infinite loops
@@ -156,14 +188,17 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     while (heap.length > 0 && iterations < maxIterations) {
       iterations++;
       const current = heap.shift()!;
-      const { path, visitedSet, arrivalTime } = current;
+      const { path, visitedSet, arrivalTime, totalDuration } = current;
       const lastFlight = path[path.length - 1];
       const currentAirport = lastFlight.Destination;
 
       // Check if we've reached an end airport
       if (endAirports.has(currentAirport)) {
-        if (visitedSet.size > maxVisited) {
+        // Update best path using multi-objective criteria
+        if (visitedSet.size > maxVisited || 
+            (visitedSet.size === maxVisited && totalDuration < bestDuration)) {
           maxVisited = visitedSet.size;
+          bestDuration = totalDuration;
           bestPath = [...path];
         }
         continue;
@@ -194,18 +229,27 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
           newVisitedSet.add(nextFlight.Destination);
         }
 
-        const newScore = -newVisitedSet.size + calculateHeuristic(newVisitedSet, newAirports);
+        const newPath = [...path, nextFlight];
+        const newTotalDuration = totalDuration + (nextFlight['Elapsed Minutes'] || 0);
+        const newScore = calculateMultiObjectiveScore(newVisitedSet.size, newTotalDuration, newAirports.size);
+        
         heap.push({
           score: newScore,
           counter: counter++,
-          path: [...path, nextFlight],
+          path: newPath,
           visitedSet: newVisitedSet,
-          arrivalTime: nextArrTime
+          arrivalTime: nextArrTime,
+          totalDuration: newTotalDuration
         });
       });
 
       // Keep heap sorted and limit size for performance
-      heap.sort((a, b) => a.score - b.score);
+      // Sort by score first, then by total duration as tiebreaker, then by counter for deterministic ordering
+      heap.sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
+        return a.counter - b.counter;
+      });
       if (heap.length > 1000) {
         heap.splice(1000);
       }
