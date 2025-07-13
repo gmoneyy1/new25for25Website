@@ -26,6 +26,7 @@ export interface SearchState {
   path: Flight[];
   visitedSet: Set<string>;
   arrivalTime: Date;
+  totalDuration: number;
 }
 
 export interface OptimizationResults {
