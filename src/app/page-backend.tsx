@@ -12,9 +12,9 @@ const JetBlueOptimizer = () => {
   const [results, setResults] = useState<Results>(null);
   const [apiStatus, setApiStatus] = useState<{ allAvailable: boolean; schedule: any; optimize: any } | null>(null);
   const [config, setConfig] = useState<RouteConfig>({
-    startDate: '2025-06-20',
+    startDate: '2025-08-15',
     startTime: '19:00',
-    endDate: '2025-06-21',
+    endDate: '2025-08-16',
     endTime: '23:59',
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',

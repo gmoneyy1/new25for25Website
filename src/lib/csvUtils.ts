@@ -1,5 +1,32 @@
 import { Flight } from './types';
 
+// Define the reliable data range (August 1 - December 31, 2025)
+const RELIABLE_DATA_START = new Date('2025-08-01T00:00:00');
+const RELIABLE_DATA_END = new Date('2025-12-31T23:59:59');
+
+/**
+ * Filter flights to only include those within the reliable date range
+ * @param flights - Array of flight objects
+ * @returns Filtered array of flights within reliable date range
+ */
+export const filterFlightsByReliableRange = (flights: Flight[]): Flight[] => {
+  return flights.filter(flight => {
+    try {
+      const depTime = new Date(flight['Departure Datetime']);
+      const arrTime = new Date(flight['Arrival Datetime']);
+      
+      return depTime >= RELIABLE_DATA_START && 
+             depTime <= RELIABLE_DATA_END && 
+             arrTime >= RELIABLE_DATA_START && 
+             arrTime <= RELIABLE_DATA_END &&
+             !isNaN(depTime.getTime()) && 
+             !isNaN(arrTime.getTime());
+    } catch {
+      return false;
+    }
+  });
+};
+
 /**
  * Convert flight data to CSV format
  * @param flights - Array of flight objects

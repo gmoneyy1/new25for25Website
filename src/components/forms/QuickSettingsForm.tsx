@@ -17,9 +17,9 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
       description: 'Friday evening to Sunday night',
       config: {
         ...config,
-        startDate: '2025-06-20',
+        startDate: '2025-08-15',
         startTime: '18:00',
-        endDate: '2025-06-22',
+        endDate: '2025-08-17',
         endTime: '23:59',
         minConnectionTime: 60
       }
@@ -29,9 +29,9 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
       description: 'Early morning to late evening',
       config: {
         ...config,
-        startDate: '2025-06-21',
+        startDate: '2025-08-16',
         startTime: '06:00',
-        endDate: '2025-06-21',
+        endDate: '2025-08-16',
         endTime: '23:59',
         minConnectionTime: 45
       }
@@ -41,11 +41,47 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
       description: 'Monday to Friday',
       config: {
         ...config,
-        startDate: '2025-06-23',
+        startDate: '2025-08-18',
         startTime: '06:00',
-        endDate: '2025-06-27',
+        endDate: '2025-08-22',
         endTime: '23:59',
         minConnectionTime: 90
+      }
+    },
+    augustTrip: {
+      name: 'August Trip',
+      description: 'August vacation',
+      config: {
+        ...config,
+        startDate: '2025-08-01',
+        startTime: '08:00',
+        endDate: '2025-08-31',
+        endTime: '23:59',
+        minConnectionTime: 120
+      }
+    },
+    fallTrip: {
+      name: 'Fall Trip',
+      description: 'September-October getaway',
+      config: {
+        ...config,
+        startDate: '2025-09-15',
+        startTime: '08:00',
+        endDate: '2025-10-15',
+        endTime: '23:59',
+        minConnectionTime: 120
+      }
+    },
+    holidayTrip: {
+      name: 'Holiday Trip',
+      description: 'December holiday season',
+      config: {
+        ...config,
+        startDate: '2025-12-20',
+        startTime: '08:00',
+        endDate: '2025-12-31',
+        endTime: '23:59',
+        minConnectionTime: 120
       }
     }
   };

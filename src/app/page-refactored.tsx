@@ -14,9 +14,9 @@ const JetBlueOptimizer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<Results>(null);
   const [config, setConfig] = useState<RouteConfig>({
-    startDate: '2025-06-20',
+    startDate: '2025-08-15',
     startTime: '19:00',
-    endDate: '2025-06-21',
+    endDate: '2025-08-16',
     endTime: '23:59',
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',

@@ -5,45 +5,45 @@ import { optimizeRoute, calculateMultiObjectiveScore } from './optimizationUtils
 // Test data
 const testFlights: Flight[] = [
   {
-    'Flight Number': 'B6-101',
-    Origin: 'JFK',
-    Destination: 'BOS',
-    'Departure Datetime': '2025-06-20T08:00:00',
-    'Arrival Datetime': '2025-06-20T09:30:00',
+    'Flight Number': 'B6123',
+    'Origin': 'JFK',
+    'Destination': 'LAX',
+    'Departure Datetime': '2025-08-15T08:00:00',
+    'Arrival Datetime': '2025-08-15T09:30:00',
     'Elapsed Minutes': 90,
-    Equipment: 'A320',
-    'Distance (KM)': 300
+    'Equipment': 'A320',
+    'Distance (KM)': 4000
   },
   {
-    'Flight Number': 'B6-102',
-    Origin: 'BOS',
-    Destination: 'DCA',
-    'Departure Datetime': '2025-06-20T11:00:00',
-    'Arrival Datetime': '2025-06-20T13:00:00',
+    'Flight Number': 'B6124',
+    'Origin': 'LAX',
+    'Destination': 'JFK',
+    'Departure Datetime': '2025-08-15T11:00:00',
+    'Arrival Datetime': '2025-08-15T13:00:00',
     'Elapsed Minutes': 120,
-    Equipment: 'A320',
-    'Distance (KM)': 600
+    'Equipment': 'A320',
+    'Distance (KM)': 4000
   },
   {
-    'Flight Number': 'B6-103',
-    Origin: 'JFK',
-    Destination: 'DCA',
-    'Departure Datetime': '2025-06-20T08:30:00',
-    'Arrival Datetime': '2025-06-20T10:00:00',
+    'Flight Number': 'B6125',
+    'Origin': 'JFK',
+    'Destination': 'BOS',
+    'Departure Datetime': '2025-08-15T08:30:00',
+    'Arrival Datetime': '2025-08-15T10:00:00',
     'Elapsed Minutes': 90,
-    Equipment: 'A320',
-    'Distance (KM)': 400
+    'Equipment': 'A320',
+    'Distance (KM)': 300
   }
 ];
 
 const testConfig: RouteConfig = {
-  startDate: '2025-06-20',
-  startTime: '07:00',
-  endDate: '2025-06-20',
-  endTime: '23:00',
+  startDate: '2025-08-15',
+  startTime: '08:00',
+  endDate: '2025-08-15',
+  endTime: '23:59',
   startAirports: 'JFK',
-  endAirports: 'DCA',
-  visitedAirports: '',
+  endAirports: 'JFK',
+  visitedAirports: 'LAX,BOS',
   minConnectionTime: 60
 };
 

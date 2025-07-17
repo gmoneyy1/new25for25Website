@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Load and parse CSV data
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule062025.csv');
+    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
     const csvData = await fs.readFile(csvPath, 'utf-8');
     
     // Parse CSV into flight objects

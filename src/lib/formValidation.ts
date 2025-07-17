@@ -13,6 +13,10 @@ export interface FormErrors {
   minConnectionTime?: string;
 }
 
+// Available date range for flight data
+const DATA_START_DATE = '2025-08-01';
+const DATA_END_DATE = '2025-12-31';
+
 /**
  * Validate route configuration form
  * @param config - Route configuration to validate
@@ -26,6 +30,11 @@ export const validateRouteConfig = (config: RouteConfig): FormErrors => {
     errors.startDate = 'Start date is required';
   } else if (!isValidDate(config.startDate)) {
     errors.startDate = 'Invalid start date format';
+  } else {
+    // Check if date is within available data range
+    if (config.startDate < DATA_START_DATE || config.startDate > DATA_END_DATE) {
+      errors.startDate = `Start date must be between ${DATA_START_DATE} and ${DATA_END_DATE}`;
+    }
   }
 
   // Validate start time
@@ -40,6 +49,11 @@ export const validateRouteConfig = (config: RouteConfig): FormErrors => {
     errors.endDate = 'End date is required';
   } else if (!isValidDate(config.endDate)) {
     errors.endDate = 'Invalid end date format';
+  } else {
+    // Check if date is within available data range
+    if (config.endDate < DATA_START_DATE || config.endDate > DATA_END_DATE) {
+      errors.endDate = `End date must be between ${DATA_START_DATE} and ${DATA_END_DATE}`;
+    }
   }
 
   // Validate end time

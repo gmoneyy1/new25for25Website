@@ -25,7 +25,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   };
 
   const validateForm = (): boolean => {
-    return !Object.values(errors).some(error => error.length > 0);
+    return !Object.values(errors).some(error => error && error.length > 0);
   };
 
   return (
@@ -40,6 +40,16 @@ export const RouteForm: React.FC<RouteFormProps> = ({
         <div className="bg-gray-50 rounded-md p-5">
           <h3 className="text-sm font-medium text-gray-700 mb-4">Time Window</h3>
           
+          {/* Date Range Info */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-sm text-blue-800">
+              <strong>Available Date Range:</strong> August 1, 2025 - December 31, 2025
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              Flight data is available for this period. Please select dates within this range.
+            </p>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col min-w-0">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -48,6 +58,8 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <input
                 type="date"
                 value={config.startDate}
+                min="2025-08-01"
+                max="2025-12-31"
                 onChange={(e) => handleInputChange('startDate', e.target.value)}
                 className={`w-full px-3 py-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                   errors.startDate ? 'border-red-300' : 'border-gray-300'
@@ -89,6 +101,8 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <input
                 type="date"
                 value={config.endDate}
+                min="2025-08-01"
+                max="2025-12-31"
                 onChange={(e) => handleInputChange('endDate', e.target.value)}
                 className={`w-full px-3 py-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                   errors.endDate ? 'border-red-300' : 'border-gray-300'
