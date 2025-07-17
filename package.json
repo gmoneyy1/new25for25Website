@@ -10,17 +10,18 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.7",
+    "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.408.0",
     "next": "14.2.5",
+    "papaparse": "^5.4.1",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.4.0",
-    "tailwindcss-animate": "^1.0.7",
-    "papaparse": "^5.4.1"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^20",
