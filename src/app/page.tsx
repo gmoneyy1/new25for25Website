@@ -3,8 +3,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { RouteForm } from '../components/forms/RouteForm';
 import { QuickSettingsForm } from '../components/forms/QuickSettingsForm';
+import { OptimizationSettingsForm } from '../components/forms/OptimizationSettingsForm';
 import { ResultsPage } from '../components/results/ResultsPage';
 import { RouteConfig, Results } from '../lib/types';
+import { OptimizationConfig } from '../lib/optimizationConfig';
 import { optimizeRoute } from '../lib/apiService';
 import { validateRouteConfig, FormErrors } from '../lib/formValidation';
 
@@ -19,10 +21,11 @@ const JetBlueOptimizer = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<Results>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [optimizationConfig, setOptimizationConfig] = useState<OptimizationConfig | null>(null);
   const [config, setConfig] = useState<RouteConfig>({
-    startDate: '2025-06-20',
+    startDate: '2025-08-15',
     startTime: '19:00',
-    endDate: '2025-06-21',
+    endDate: '2025-08-16',
     endTime: '23:59',
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',
@@ -67,6 +70,11 @@ const JetBlueOptimizer = () => {
     handleOptimizeRoute();
   }, [handleOptimizeRoute]);
 
+  const handleOptimizationConfigChange = useCallback((newConfig: OptimizationConfig) => {
+    setOptimizationConfig(newConfig);
+    console.log('Optimization settings updated:', newConfig);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Main App Content */}
@@ -95,6 +103,9 @@ const JetBlueOptimizer = () => {
             <QuickSettingsForm
               config={config}
               onConfigChange={setConfig}
+            />
+            <OptimizationSettingsForm
+              onConfigChange={handleOptimizationConfigChange}
             />
           </div>
           {/* Results Panel */}

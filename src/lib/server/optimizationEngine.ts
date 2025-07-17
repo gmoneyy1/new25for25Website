@@ -1,4 +1,5 @@
-import { Flight, RouteConfig, SearchState, OptimizationResults, OptimizationError } from '../types';
+import { Flight, RouteConfig, OptimizationResults, OptimizationError, SearchState } from '../types';
+import { ACTIVE_CONFIG } from '../optimizationConfig';
 
 /**
  * Calculate heuristic value for A* search with multi-objective optimization
@@ -60,17 +61,33 @@ const kilometersToMiles = (kilometers: number): number => {
 const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] => {
   const startDateTime = parseDateTime(config.startDate, config.startTime);
   const endDateTime = parseDateTime(config.endDate, config.endTime);
+  
+  // Define the reliable data range (August 1 - December 31, 2025)
+  const reliableDataStart = new Date('2025-08-01T00:00:00');
+  const reliableDataEnd = new Date('2025-12-31T23:59:59');
+
+  // Helper function to validate Date objects
+  const isValidDateObject = (date: Date): boolean => {
+    return !isNaN(date.getTime());
+  };
 
   return flights.filter(flight => {
     const depTime = new Date(flight['Departure Datetime']);
     const arrTime = new Date(flight['Arrival Datetime']);
     
+    // Check if flights are within the reliable data range
+    const isWithinReliableRange = depTime >= reliableDataStart && 
+                                 depTime <= reliableDataEnd && 
+                                 arrTime >= reliableDataStart && 
+                                 arrTime <= reliableDataEnd;
+    
     return depTime >= startDateTime && 
            arrTime <= endDateTime && 
+           isWithinReliableRange &&
            flight.Origin && 
            flight.Destination && 
-           isValidDate(depTime) && 
-           isValidDate(arrTime);
+           isValidDateObject(depTime) && 
+           isValidDateObject(arrTime);
   }).sort((a, b) => new Date(a['Departure Datetime']).getTime() - new Date(b['Departure Datetime']).getTime());
 };
 
@@ -153,6 +170,9 @@ const calculateMultiObjectiveScore = (
   return airportScore + normalizedDuration;
 };
 
+// Configuration for optimization algorithm
+const OPTIMIZATION_CONFIG = ACTIVE_CONFIG;
+
 /**
  * Optimize route using A* search algorithm
  * @param flights - Array of all flights
@@ -160,6 +180,8 @@ const calculateMultiObjectiveScore = (
  * @returns Promise with optimization results or error
  */
 export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Promise<OptimizationResults | OptimizationError> => {
+  const startTime = Date.now();
+  
   try {
     const { startAirports, endAirports, visitedAirports } = parseAirportSets(config);
     const minConnectionTime = minutesToMilliseconds(config.minConnectionTime);
@@ -218,9 +240,15 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     });
 
     let iterations = 0;
-    const maxIterations = 5000; // Prevent infinite loops
+    const maxIterations = OPTIMIZATION_CONFIG.maxIterations;
 
     while (heap.length > 0 && iterations < maxIterations) {
+      // Check timeout
+      if (Date.now() - startTime > OPTIMIZATION_CONFIG.timeoutMs) {
+        console.warn(`Optimization timeout after ${iterations} iterations`);
+        break;
+      }
+      
       iterations++;
       const current = heap.shift()!;
       const { path, visitedSet, arrivalTime, totalDuration } = current;
@@ -285,8 +313,8 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
         return a.counter - b.counter;
       });
-      if (heap.length > 1000) {
-        heap.splice(1000);
+      if (heap.length > OPTIMIZATION_CONFIG.maxHeapSize) {
+        heap.splice(OPTIMIZATION_CONFIG.maxHeapSize);
       }
     }
 

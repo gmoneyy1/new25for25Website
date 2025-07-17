@@ -5,7 +5,7 @@ import path from 'path';
 export async function GET() {
   try {
     // Path to your CSV file (adjust the path as needed)
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule062025.csv');
+    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
     
     if (!fs.existsSync(csvPath)) {
       return NextResponse.json(

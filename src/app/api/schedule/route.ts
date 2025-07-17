@@ -9,7 +9,7 @@ import path from 'path';
 export async function GET(request: NextRequest) {
   try {
     // Path to the CSV file in the data directory
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule062025.csv');
+    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
     
     // Read the CSV file
     const csvData = await fs.readFile(csvPath, 'utf-8');

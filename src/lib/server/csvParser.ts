@@ -1,5 +1,30 @@
 import { Flight } from '../types';
 
+// Define the reliable data range (August 1 - December 31, 2025)
+const RELIABLE_DATA_START = new Date('2025-08-01T00:00:00');
+const RELIABLE_DATA_END = new Date('2025-12-31T23:59:59');
+
+/**
+ * Check if a flight is within the reliable date range
+ * @param flight - Flight object to check
+ * @returns True if flight is within reliable date range
+ */
+const isFlightInReliableRange = (flight: Flight): boolean => {
+  try {
+    const depTime = new Date(flight['Departure Datetime']);
+    const arrTime = new Date(flight['Arrival Datetime']);
+    
+    return depTime >= RELIABLE_DATA_START && 
+           depTime <= RELIABLE_DATA_END && 
+           arrTime >= RELIABLE_DATA_START && 
+           arrTime <= RELIABLE_DATA_END &&
+           !isNaN(depTime.getTime()) && 
+           !isNaN(arrTime.getTime());
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Parse CSV text content into Flight objects
  * @param csvText - Raw CSV text content
@@ -33,6 +58,7 @@ export const parseCsvText = (csvText: string): Flight[] => {
 
   // Parse data rows
   const flights: Flight[] = [];
+  let skippedCount = 0;
   
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -56,13 +82,20 @@ export const parseCsvText = (csvText: string): Flight[] => {
         'Distance (KM)': parseFloat(values[header.indexOf('Distance (KM)')]) || 0
       };
 
-      // Validate required fields
-      if (flight['Flight Number'] && flight.Origin && flight.Destination) {
+      // Validate required fields and date range
+      if (flight['Flight Number'] && flight.Origin && flight.Destination && isFlightInReliableRange(flight)) {
         flights.push(flight);
+      } else if (flight['Flight Number'] && flight.Origin && flight.Destination) {
+        // Flight has required fields but is outside reliable date range
+        skippedCount++;
       }
     } catch (error) {
       console.warn(`Skipping row ${i + 1}: ${error}`);
     }
+  }
+
+  if (skippedCount > 0) {
+    console.log(`Skipped ${skippedCount} flights outside reliable date range (August 1 - December 31, 2025)`);
   }
 
   return flights;
