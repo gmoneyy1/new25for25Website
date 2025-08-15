@@ -70,7 +70,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
   const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const overlaysRef = useRef<(google.maps.Polyline | google.maps.Marker)[]>([]);
+  const overlaysRef = useRef<(google.maps.Polyline | google.maps.Marker | any)[]>([]);
 
   useEffect(() => {
     setIsClient(true);
@@ -128,7 +128,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         const script = document.createElement('script');
         // Use environment variable for API key, fallback to a placeholder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,marker&loading=async&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
         
@@ -213,6 +213,8 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           overlay.setMap(null);
         } else if (overlay instanceof google.maps.Marker) {
           overlay.setMap(null);
+        } else if (window.google.maps.marker && overlay instanceof window.google.maps.marker.AdvancedMarkerElement) {
+          overlay.map = null;
         }
       });
       overlaysRef.current = [];
@@ -264,26 +266,55 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           markerColor = '#f44336'; // Red for end
         }
 
-        // Use the classic Marker for now (still supported)
-        const marker = new window.google.maps.Marker({
-          position: { lat: airport.lat, lng: airport.lng },
-          map: map,
-          title: `${airportCode} - ${airport.city}`,
-          icon: {
-            path: 'M 0, 0 m -5, 0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0', // Circle path as string
-            scale: 1.5,
-            fillColor: markerColor,
-            fillOpacity: 1,
-            strokeColor: 'white',
-            strokeWeight: 2
-          },
-          label: {
-            text: airportCode,
-            color: 'white',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          }
-        });
+        // Use AdvancedMarkerElement if available, fallback to classic Marker
+        let marker;
+        if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+          // Create a custom pin element for AdvancedMarkerElement
+          const pinElement = document.createElement('div');
+          pinElement.style.cssText = `
+            width: 24px;
+            height: 24px;
+            background-color: ${markerColor};
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          `;
+          pinElement.textContent = airportCode;
+          
+          marker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: airport.lat, lng: airport.lng },
+            map: map,
+            title: `${airportCode} - ${airport.city}`,
+            content: pinElement
+          });
+        } else {
+          // Fallback to classic Marker
+          marker = new window.google.maps.Marker({
+            position: { lat: airport.lat, lng: airport.lng },
+            map: map,
+            title: `${airportCode} - ${airport.city}`,
+            icon: {
+              path: 'M 0, 0 m -5, 0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0',
+              scale: 1.5,
+              fillColor: markerColor,
+              fillOpacity: 1,
+              strokeColor: 'white',
+              strokeWeight: 2
+            },
+            label: {
+              text: airportCode,
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }
+          });
+        }
 
         overlaysRef.current.push(marker);
       });
