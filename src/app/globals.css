@@ -67,3 +67,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom map styles */
+.custom-airport-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px;
+}

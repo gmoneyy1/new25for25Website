@@ -54,13 +54,13 @@ export const OptimizationSettingsForm: React.FC<OptimizationSettingsFormProps> =
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-semibold mb-4 flex items-center">
+    <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center">
         <Settings className="mr-2" size={20} />
         Optimization Settings
       </h2>
       
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+      <div className="mb-3 sm:mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-800">
           <strong>Algorithm Performance:</strong> Choose how thoroughly the algorithm searches for optimal routes.
         </p>

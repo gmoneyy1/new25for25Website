@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Link from 'next/link';
 import { Analytics } from '@vercel/analytics/react';
+import QueryProvider from '../components/QueryProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 const NAV_ITEMS = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
+  { label: 'Settings', href: '/settings' },
   { label: 'Contact Us', href: '/contact' },
 ];
 
@@ -47,9 +49,11 @@ export default function RootLayout({
   return (
     <html lang='en'>
       <body className={inter.className}>
-        <Navigation />
-        {children}
-        <Analytics />
+        <QueryProvider>
+          <Navigation />
+          {children}
+          <Analytics />
+        </QueryProvider>
       </body>
     </html>
   );
