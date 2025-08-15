@@ -3,15 +3,20 @@ import { NextResponse } from 'next/server';
 /**
  * GET /api/config
  * Provides client configuration including Google Maps API key
+ * Updated: Force fresh deployment to clear cache
  */
 export async function GET() {
   try {
+    // TEMPORARY: Hardcode API key for testing (REMOVE BEFORE COMMITTING TO PRODUCTION)
+    const hardcodedKey = 'AIzaSyAn867D4CGSlmyAj392Th3VCgDeqdziVSc';
+    
     // Try multiple environment variable names
     const googleMapsApiKey = 
       process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 
       process.env.GOOGLE_MAPS_API_KEY || 
       process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
-      process.env.GOOGLE_MAPS_API;
+      process.env.GOOGLE_MAPS_API ||
+      hardcodedKey; // Fallback to hardcoded key
 
     // Enhanced debugging for server environment
     console.log('🔍 Server environment check:', {
