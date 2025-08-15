@@ -56,6 +56,7 @@ const airportCoordinates: { [key: string]: { lat: number; lng: number; name: str
   'PWM': { lat: 43.6462, lng: -70.3093, name: 'Portland International Jetport', city: 'Portland' },
   'BGR': { lat: 44.8074, lng: -68.8281, name: 'Bangor International Airport', city: 'Bangor' },
   'ACK': { lat: 41.2532, lng: -70.0602, name: 'Nantucket Memorial Airport', city: 'Nantucket' },
+  'PVD': { lat: 41.7240, lng: -71.4281, name: 'T.F. Green Airport', city: 'Providence' },
 };
 
 interface RouteMapProps {
@@ -128,14 +129,18 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         const script = document.createElement('script');
         // Use environment variable for API key, fallback to a placeholder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,marker&loading=async&callback=initGoogleMaps`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
         
         // Set up global callback
         (window as any).initGoogleMaps = () => {
           console.log('Google Maps API loaded successfully');
-          initMap();
+          // Wait a bit longer for marker library to be fully available
+          setTimeout(() => {
+            console.log('Initializing map after marker library load...');
+            initMap();
+          }, 200);
         };
         
         script.onerror = () => {
@@ -178,6 +183,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           zoom: 6,
           center: center,
           mapTypeId: 'terrain', // Use string instead of enum to avoid undefined issues
+          mapId: 'DEMO_MAP_ID', // Required for AdvancedMarkerElement
           styles: [], // Clean styling
         });
 
@@ -226,20 +232,61 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         
         if (!origin || !destination) return;
 
-        // Create curved flight path
+        // Create curved flight path with improved styling
         const flightPath = new window.google.maps.Polyline({
           path: [
             { lat: origin.lat, lng: origin.lng },
             { lat: destination.lat, lng: destination.lng }
           ],
           geodesic: true, // Curves with Earth's surface
-          strokeColor: '#ff4444',
-          strokeOpacity: 0.8,
-          strokeWeight: 4,
-          map: map
+          strokeColor: '#2563eb', // Blue color instead of red
+          strokeOpacity: 0.7,
+          strokeWeight: 3, // Slightly thinner lines
+          map: map,
+          icons: [{
+            icon: {
+              path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3,
+              strokeColor: '#2563eb',
+              fillColor: '#2563eb',
+              fillOpacity: 1
+            },
+            offset: '100%'
+          }] // Add directional arrows
         });
 
         overlaysRef.current.push(flightPath);
+
+        // Add flight sequence marker at midpoint
+        const midLat = (origin.lat + destination.lat) / 2;
+        const midLng = (origin.lng + destination.lng) / 2;
+        
+        const sequenceElement = document.createElement('div');
+        sequenceElement.style.cssText = `
+          width: 20px;
+          height: 20px;
+          background-color: #ffffff;
+          border: 2px solid #2563eb;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: bold;
+          color: #2563eb;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        `;
+        sequenceElement.textContent = (index + 1).toString();
+        
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          const sequenceMarker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: midLat, lng: midLng },
+            map: map,
+            title: `Flight ${index + 1}: ${flight.Origin} → ${flight.Destination}`,
+            content: sequenceElement
+          });
+          overlaysRef.current.push(sequenceMarker);
+        }
       });
 
       // Add airport markers
@@ -266,35 +313,67 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           markerColor = '#f44336'; // Red for end
         }
 
-        // Use AdvancedMarkerElement if available, fallback to classic Marker
+        // Debug: Check what's available
+        console.log('Google Maps API availability:', {
+          google: !!window.google,
+          maps: !!window.google?.maps,
+          marker: !!window.google?.maps?.marker,
+          AdvancedMarkerElement: !!window.google?.maps?.marker?.AdvancedMarkerElement,
+          PinElement: !!window.google?.maps?.marker?.PinElement
+        });
+
+        // Use AdvancedMarkerElement when available
         let marker;
-        if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
-          // Create a custom pin element for AdvancedMarkerElement
-          const pinElement = document.createElement('div');
-          pinElement.style.cssText = `
-            width: 24px;
-            height: 24px;
-            background-color: ${markerColor};
-            border: 2px solid white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          `;
-          pinElement.textContent = airportCode;
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          console.log('Using AdvancedMarkerElement for', airportCode);
           
-          marker = new window.google.maps.marker.AdvancedMarkerElement({
-            position: { lat: airport.lat, lng: airport.lng },
-            map: map,
-            title: `${airportCode} - ${airport.city}`,
-            content: pinElement
-          });
+          // Try using PinElement first (newer approach)
+          if (window.google.maps.marker.PinElement) {
+            const pinElement = new window.google.maps.marker.PinElement({
+              background: markerColor,
+              borderColor: 'white',
+              glyphColor: 'white',
+              glyph: airportCode,
+              scale: 0.8 // Smaller scale to reduce overlap
+            });
+            
+            marker = new window.google.maps.marker.AdvancedMarkerElement({
+              position: { lat: airport.lat, lng: airport.lng },
+              map: map,
+              title: `${airportCode} - ${airport.city}`,
+              content: pinElement.element
+            });
+          } else {
+            // Fallback to custom HTML element
+            const pinElement = document.createElement('div');
+            pinElement.style.cssText = `
+              width: 24px;
+              height: 24px;
+              background-color: ${markerColor};
+              border: 2px solid white;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 9px;
+              font-weight: bold;
+              color: white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              cursor: pointer;
+              z-index: 1000;
+            `;
+            pinElement.textContent = airportCode;
+            
+            marker = new window.google.maps.marker.AdvancedMarkerElement({
+              position: { lat: airport.lat, lng: airport.lng },
+              map: map,
+              title: `${airportCode} - ${airport.city}`,
+              content: pinElement
+            });
+          }
         } else {
-          // Fallback to classic Marker
+          console.log('Falling back to classic Marker for', airportCode);
+          // Fallback to classic Marker (this is what's causing the deprecation warning)
           marker = new window.google.maps.Marker({
             position: { lat: airport.lat, lng: airport.lng },
             map: map,
@@ -398,8 +477,12 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
               <span>Start & End Airport</span>
             </div>
             <div className="flex items-center">
-              <div className="w-6 h-0 border-2 border-red-400 mr-2"></div>
+              <div className="w-6 h-0 border-2 border-blue-600 mr-2"></div>
               <span>Flight Path</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-white border-2 border-blue-600 rounded-full mr-2 flex items-center justify-center text-xs font-bold text-blue-600">1</div>
+              <span>Flight Sequence</span>
             </div>
           </div>
         </div>
