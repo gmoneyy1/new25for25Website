@@ -128,14 +128,18 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         const script = document.createElement('script');
         // Use environment variable for API key, fallback to a placeholder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry,marker&loading=async&callback=initGoogleMaps`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&loading=async&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
         
         // Set up global callback
         (window as any).initGoogleMaps = () => {
           console.log('Google Maps API loaded successfully');
-          initMap();
+          // Wait a bit longer for marker library to be fully available
+          setTimeout(() => {
+            console.log('Initializing map after marker library load...');
+            initMap();
+          }, 200);
         };
         
         script.onerror = () => {
@@ -266,35 +270,66 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           markerColor = '#f44336'; // Red for end
         }
 
-        // Use AdvancedMarkerElement if available, fallback to classic Marker
+        // Debug: Check what's available
+        console.log('Google Maps API availability:', {
+          google: !!window.google,
+          maps: !!window.google?.maps,
+          marker: !!window.google?.maps?.marker,
+          AdvancedMarkerElement: !!window.google?.maps?.marker?.AdvancedMarkerElement,
+          PinElement: !!window.google?.maps?.marker?.PinElement
+        });
+
+        // Use AdvancedMarkerElement when available
         let marker;
-        if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
-          // Create a custom pin element for AdvancedMarkerElement
-          const pinElement = document.createElement('div');
-          pinElement.style.cssText = `
-            width: 24px;
-            height: 24px;
-            background-color: ${markerColor};
-            border: 2px solid white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          `;
-          pinElement.textContent = airportCode;
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          console.log('Using AdvancedMarkerElement for', airportCode);
           
-          marker = new window.google.maps.marker.AdvancedMarkerElement({
-            position: { lat: airport.lat, lng: airport.lng },
-            map: map,
-            title: `${airportCode} - ${airport.city}`,
-            content: pinElement
-          });
+          // Try using PinElement first (newer approach)
+          if (window.google.maps.marker.PinElement) {
+            const pinElement = new window.google.maps.marker.PinElement({
+              background: markerColor,
+              borderColor: 'white',
+              glyphColor: 'white',
+              glyph: airportCode,
+              scale: 1.2
+            });
+            
+            marker = new window.google.maps.marker.AdvancedMarkerElement({
+              position: { lat: airport.lat, lng: airport.lng },
+              map: map,
+              title: `${airportCode} - ${airport.city}`,
+              content: pinElement.element
+            });
+          } else {
+            // Fallback to custom HTML element
+            const pinElement = document.createElement('div');
+            pinElement.style.cssText = `
+              width: 28px;
+              height: 28px;
+              background-color: ${markerColor};
+              border: 2px solid white;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              font-weight: bold;
+              color: white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              cursor: pointer;
+            `;
+            pinElement.textContent = airportCode;
+            
+            marker = new window.google.maps.marker.AdvancedMarkerElement({
+              position: { lat: airport.lat, lng: airport.lng },
+              map: map,
+              title: `${airportCode} - ${airport.city}`,
+              content: pinElement
+            });
+          }
         } else {
-          // Fallback to classic Marker
+          console.log('Falling back to classic Marker for', airportCode);
+          // Fallback to classic Marker (this is what's causing the deprecation warning)
           marker = new window.google.maps.Marker({
             position: { lat: airport.lat, lng: airport.lng },
             map: map,
