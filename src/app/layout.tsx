@@ -4,6 +4,7 @@ import './globals.css';
 import Link from 'next/link';
 import { Analytics } from '@vercel/analytics/react';
 import QueryProvider from '../components/QueryProvider';
+import GoogleAnalytics from '../components/GoogleAnalytics';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -46,8 +47,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
   return (
     <html lang='en'>
+      <head>
+        {googleAnalyticsId && <GoogleAnalytics measurementId={googleAnalyticsId} />}
+      </head>
       <body className={inter.className}>
         <QueryProvider>
           <Navigation />
