@@ -182,6 +182,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           zoom: 6,
           center: center,
           mapTypeId: 'terrain', // Use string instead of enum to avoid undefined issues
+          mapId: 'DEMO_MAP_ID', // Required for AdvancedMarkerElement
           styles: [], // Clean styling
         });
 
