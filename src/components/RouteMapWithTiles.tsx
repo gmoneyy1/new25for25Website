@@ -56,6 +56,7 @@ const airportCoordinates: { [key: string]: { lat: number; lng: number; name: str
   'PWM': { lat: 43.6462, lng: -70.3093, name: 'Portland International Jetport', city: 'Portland' },
   'BGR': { lat: 44.8074, lng: -68.8281, name: 'Bangor International Airport', city: 'Bangor' },
   'ACK': { lat: 41.2532, lng: -70.0602, name: 'Nantucket Memorial Airport', city: 'Nantucket' },
+  'PVD': { lat: 41.7240, lng: -71.4281, name: 'T.F. Green Airport', city: 'Providence' },
 };
 
 interface RouteMapProps {
@@ -231,20 +232,61 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         
         if (!origin || !destination) return;
 
-        // Create curved flight path
+        // Create curved flight path with improved styling
         const flightPath = new window.google.maps.Polyline({
           path: [
             { lat: origin.lat, lng: origin.lng },
             { lat: destination.lat, lng: destination.lng }
           ],
           geodesic: true, // Curves with Earth's surface
-          strokeColor: '#ff4444',
-          strokeOpacity: 0.8,
-          strokeWeight: 4,
-          map: map
+          strokeColor: '#2563eb', // Blue color instead of red
+          strokeOpacity: 0.7,
+          strokeWeight: 3, // Slightly thinner lines
+          map: map,
+          icons: [{
+            icon: {
+              path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3,
+              strokeColor: '#2563eb',
+              fillColor: '#2563eb',
+              fillOpacity: 1
+            },
+            offset: '100%'
+          }] // Add directional arrows
         });
 
         overlaysRef.current.push(flightPath);
+
+        // Add flight sequence marker at midpoint
+        const midLat = (origin.lat + destination.lat) / 2;
+        const midLng = (origin.lng + destination.lng) / 2;
+        
+        const sequenceElement = document.createElement('div');
+        sequenceElement.style.cssText = `
+          width: 20px;
+          height: 20px;
+          background-color: #ffffff;
+          border: 2px solid #2563eb;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: bold;
+          color: #2563eb;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        `;
+        sequenceElement.textContent = (index + 1).toString();
+        
+        if (window.google.maps.marker?.AdvancedMarkerElement) {
+          const sequenceMarker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: midLat, lng: midLng },
+            map: map,
+            title: `Flight ${index + 1}: ${flight.Origin} → ${flight.Destination}`,
+            content: sequenceElement
+          });
+          overlaysRef.current.push(sequenceMarker);
+        }
       });
 
       // Add airport markers
@@ -292,7 +334,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
               borderColor: 'white',
               glyphColor: 'white',
               glyph: airportCode,
-              scale: 1.2
+              scale: 0.8 // Smaller scale to reduce overlap
             });
             
             marker = new window.google.maps.marker.AdvancedMarkerElement({
@@ -305,19 +347,20 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
             // Fallback to custom HTML element
             const pinElement = document.createElement('div');
             pinElement.style.cssText = `
-              width: 28px;
-              height: 28px;
+              width: 24px;
+              height: 24px;
               background-color: ${markerColor};
               border: 2px solid white;
               border-radius: 50%;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 10px;
+              font-size: 9px;
               font-weight: bold;
               color: white;
               box-shadow: 0 2px 4px rgba(0,0,0,0.3);
               cursor: pointer;
+              z-index: 1000;
             `;
             pinElement.textContent = airportCode;
             
@@ -434,8 +477,12 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
               <span>Start & End Airport</span>
             </div>
             <div className="flex items-center">
-              <div className="w-6 h-0 border-2 border-red-400 mr-2"></div>
+              <div className="w-6 h-0 border-2 border-blue-600 mr-2"></div>
               <span>Flight Path</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-4 h-4 bg-white border-2 border-blue-600 rounded-full mr-2 flex items-center justify-center text-xs font-bold text-blue-600">1</div>
+              <span>Flight Sequence</span>
             </div>
           </div>
         </div>
