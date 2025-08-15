@@ -119,13 +119,13 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-semibold mb-4 flex items-center">
+    <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center">
         <Settings className="mr-2" size={20} />
         Quick Settings
       </h2>
       
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Time Presets */}
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
@@ -137,10 +137,10 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
               <button
                 key={key}
                 onClick={() => handlePresetClick(key as keyof typeof presets)}
-                className="text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors min-h-[60px] active:bg-gray-100"
               >
-                <div className="font-medium text-gray-900">{preset.name}</div>
-                <div className="text-sm text-gray-600">{preset.description}</div>
+                <div className="font-medium text-gray-900 text-sm sm:text-base">{preset.name}</div>
+                <div className="text-xs sm:text-sm text-gray-600">{preset.description}</div>
               </button>
             ))}
           </div>
@@ -157,10 +157,10 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
               <button
                 key={key}
                 onClick={() => handleAirportPresetClick(key as keyof typeof airportPresets)}
-                className="text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors min-h-[60px] active:bg-gray-100"
               >
-                <div className="font-medium text-gray-900">{preset.name}</div>
-                <div className="text-xs text-gray-600 break-all">{preset.airports}</div>
+                <div className="font-medium text-gray-900 text-sm sm:text-base">{preset.name}</div>
+                <div className="text-xs text-gray-600 break-all mt-1">{preset.airports}</div>
               </button>
             ))}
           </div>
@@ -172,24 +172,24 @@ export const QuickSettingsForm: React.FC<QuickSettingsFormProps> = ({
             <Zap className="mr-2" size={16} />
             Quick Actions
           </h3>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               onClick={() => onConfigChange({ ...config, minConnectionTime: 60 })}
-              className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+              className="text-center p-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 rounded-md transition-colors border border-gray-200 min-h-[48px]"
             >
-              Set 60min connection time
+              60min
             </button>
             <button
               onClick={() => onConfigChange({ ...config, minConnectionTime: 90 })}
-              className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+              className="text-center p-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 rounded-md transition-colors border border-gray-200 min-h-[48px]"
             >
-              Set 90min connection time
+              90min
             </button>
             <button
               onClick={() => onConfigChange({ ...config, minConnectionTime: 120 })}
-              className="w-full text-left p-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+              className="text-center p-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 rounded-md transition-colors border border-gray-200 min-h-[48px]"
             >
-              Set 120min connection time
+              120min
             </button>
           </div>
         </div>

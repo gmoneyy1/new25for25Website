@@ -297,7 +297,25 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         iterations
       };
     } else {
-      return { error: 'No valid route found within the constraints' };
+      // Provide helpful error message with suggestions for single-airport loops
+      const isSingleAirportLoop = startAirports.size === 1 && endAirports.size === 1 && 
+                                  [...startAirports][0] === [...endAirports][0];
+      
+      if (isSingleAirportLoop) {
+        const airport = [...startAirports][0];
+        return { 
+          error: `No valid loop route found from ${airport}. Try adding nearby airports like "${airport},JFK,LGA" for better results, or reduce the time window/connection time.`
+        };
+      }
+      
+      const visitedCount = visitedAirports.size;
+      if (visitedCount > 12) {
+        return {
+          error: `No valid route found with ${visitedCount} excluded airports. Try reducing already-visited airports or extending the time window.`
+        };
+      }
+      
+      return { error: 'No valid route found within the constraints. Try extending the time window or reducing connection time.' };
     }
 
   } catch (error) {

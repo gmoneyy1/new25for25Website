@@ -1,84 +1,152 @@
-import React from 'react';
-import { Plane, MapPin, Download, Share2, RefreshCw, BarChart3, Clock, Map, TrendingUp } from 'lucide-react';
-import { Results, OptimizationResults } from '../../lib/types';
-import { FlightCard } from '../FlightCard';
+import React, { useState } from 'react';
+import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, TrendingUp, BarChart3, Share, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { Results, FlightWithPricing, RoutePricingData, PricingComparison, Flight } from '../../lib/types';
+import { useRoutePricing, usePricingComparison } from '../../hooks/usePricing';
+import { formatPrice } from '../../lib/pricingService';
+import { kilometersToMiles } from '../../lib/distanceUtils';
+import { formatDateTime, minutesToHours } from '../../lib/dateUtils';
 import { downloadFlightsAsCsv } from '../../lib/csvUtils';
-import { minutesToHours } from '../../lib/dateUtils';
 
 interface ResultsPageProps {
   results: Results;
   onDownload: () => void;
   onOptimizeAgain: () => void;
-  isLoading?: boolean;
+  isLoading: boolean;
 }
 
-export const ResultsPage: React.FC<ResultsPageProps> = ({ 
-  results, 
-  onDownload, 
+interface ResultsPagePropsExtended extends ResultsPageProps {
+  isFromCache?: boolean;
+}
+
+export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
+  results,
+  onDownload,
   onOptimizeAgain,
-  isLoading = false 
+  isLoading,
+  isFromCache = false
 }) => {
-  const handleDownload = () => {
-    if (results && 'path' in results) {
-      downloadFlightsAsCsv(results.path);
-      onDownload();
+  const [expandedFlights, setExpandedFlights] = useState<{[key: string]: boolean}>({});
+  const [activePricingComparisons, setActivePricingComparisons] = useState<{[key: string]: boolean}>({});
+
+  // Use cached pricing queries
+  const flightPath = results && 'path' in results ? results.path : null;
+  const { data: pricingData, isLoading: isLoadingPricing } = useRoutePricing(flightPath);
+
+
+
+  // Function to toggle flight expansion and activate pricing comparison
+  const toggleFlightExpansion = (flight: Flight) => {
+    const flightKey = `${flight['Flight Number']}-${flight.Origin}-${flight.Destination}`;
+    const wasExpanded = expandedFlights[flightKey];
+    
+    setExpandedFlights(prev => ({
+      ...prev,
+      [flightKey]: !prev[flightKey]
+    }));
+    
+    // Activate pricing comparison query when expanding
+    if (!wasExpanded) {
+      setActivePricingComparisons(prev => ({
+        ...prev,
+        [flightKey]: true
+      }));
     }
   };
 
-  const handleShare = () => {
-    if (results && 'path' in results) {
-      const shareText = `Found ${results.totalFlights} flights visiting ${results.newAirportsVisited.length} new airports! Total distance: ${results.totalDistance.toLocaleString()} miles.`;
-      
-      if (navigator.share) {
-        navigator.share({
-          title: 'JetBlue Route Optimization Results',
-          text: shareText,
-          url: window.location.href
-        });
-      } else {
-        // Fallback to clipboard
-        navigator.clipboard.writeText(shareText);
-        alert('Results copied to clipboard!');
-      }
-    }
+  // Component for individual flight pricing comparison
+  const FlightPricingComparison: React.FC<{ flight: Flight; isExpanded: boolean }> = ({ flight, isExpanded }) => {
+    const flightKey = `${flight['Flight Number']}-${flight.Origin}-${flight.Destination}`;
+    const shouldFetch = activePricingComparisons[flightKey] && isExpanded;
+    
+    const { data: comparison, isLoading: isLoadingComparison } = usePricingComparison(
+      flight,
+      shouldFetch
+    );
+
+    if (!isExpanded) return null;
+
+    return (
+      <div className="border-t border-gray-200 p-3 bg-white">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Price Comparison</h4>
+        {isLoadingComparison ? (
+          <div className="flex items-center text-sm text-gray-500">
+            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            Loading pricing options...
+          </div>
+        ) : comparison ? (
+          <div className="space-y-2">
+            {comparison.options.map((option, optIndex: number) => (
+              <div key={optIndex} className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">{option.airline}</span>
+                  <span className="text-gray-500">({option.cabinClass})</span>
+                  {optIndex === 0 && (
+                    <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-medium">
+                      Best Price
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold">{formatPrice(option.price, option.currency)}</span>
+                  <a
+                    href={option.bookingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-600"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            ))}
+            <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
+              Average price: {formatPrice(comparison.averagePrice, 'USD')}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">
+            No pricing data available
+          </div>
+        )}
+      </div>
+    );
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center py-12">
+          <RefreshCw className="animate-spin h-8 w-8 text-blue-500 mr-3" />
+          <span className="text-lg text-gray-600">Optimizing route...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!results) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Plane className="mr-2" size={20} />
-          Optimization Results
-        </h2>
-        
-        <div className="text-center py-12 text-gray-500">
-          <MapPin size={48} className="mx-auto mb-4 opacity-50" />
-          <p>Configure your route parameters and click "Optimize Route" to see results</p>
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-12">
+          <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Yet</h3>
+          <p className="text-gray-600">
+            Configure your route parameters and click "Optimize Route" to find the best flight path.
+          </p>
         </div>
       </div>
     );
   }
 
-  if ('error' in results && results.error) {
+  if ('error' in results) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Plane className="mr-2" size={20} />
-          Optimization Results
-        </h2>
-        
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 text-red-700">
-          <p className="font-medium">Error:</p>
-          <p>{results.error}</p>
-        </div>
-        
-        <div className="mt-4">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-12">
+          <div className="text-red-500 text-lg font-medium mb-2">Optimization Error</div>
+          <p className="text-gray-600 mb-4">{results.error}</p>
           <button
             onClick={onOptimizeAgain}
-            disabled={isLoading}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
           >
-            <RefreshCw className="mr-2" size={16} />
             Try Again
           </button>
         </div>
@@ -86,169 +154,238 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
     );
   }
 
-  if (!('path' in results) || !results.path) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Plane className="mr-2" size={20} />
-          Optimization Results
-        </h2>
-        
-        <div className="text-center py-12 text-gray-500">
-          <p>No valid route found within the constraints</p>
-          <button
-            onClick={onOptimizeAgain}
-            disabled={isLoading}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center mx-auto"
-          >
-            <RefreshCw className="mr-2" size={16} />
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const optimizationResults = results as OptimizationResults;
+  const { path, totalFlights, newAirportsVisited, totalDistance, totalDuration, iterations } = results;
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold flex items-center">
-          <Plane className="mr-2" size={20} />
-          Optimization Results
-        </h2>
-        
-        <div className="flex space-x-2">
-          <button
-            onClick={handleShare}
-            className="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center text-sm"
-          >
-            <Share2 className="mr-1" size={14} />
-            Share
+    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+      {/* Header - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center mb-3 sm:mb-0">
+          <Plane className="h-6 w-6 text-blue-500 mr-2" />
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Optimization Results</h2>
+            {isFromCache && (
+              <div className="flex items-center text-sm text-green-600 mt-1">
+                <Zap className="h-4 w-4 mr-1" />
+                Loaded from cache
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors border border-gray-200 rounded-md min-h-[40px]">
+            <Share className="h-4 w-4 mr-1" />
+            <span className="hidden xs:inline">Share</span>
           </button>
-          <button
-            onClick={handleDownload}
-            className="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 flex items-center text-sm"
+          <button 
+            onClick={() => {
+              downloadFlightsAsCsv(path);
+              onDownload();
+            }}
+            className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors border border-gray-200 rounded-md min-h-[40px]"
           >
-            <Download className="mr-1" size={14} />
-            Download CSV
+            <Download className="h-4 w-4 mr-1" />
+            <span className="hidden xs:inline">CSV</span>
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-center">
-          <div className="flex items-center justify-center mb-2">
-            <Plane className="text-blue-600" size={20} />
+      {/* Summary Cards - Mobile Optimized Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="bg-blue-50 rounded-lg p-3 md:p-4">
+          <div className="flex items-center">
+            <Plane className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{totalFlights}</p>
+              <p className="text-xs md:text-sm text-gray-600">Total Flights</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-blue-600">{optimizationResults.totalFlights}</p>
-          <p className="text-sm text-gray-600">Total Flights</p>
         </div>
-        
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 text-center">
-          <div className="flex items-center justify-center mb-2">
-            <MapPin className="text-green-600" size={20} />
+
+        <div className="bg-green-50 rounded-lg p-3 md:p-4">
+          <div className="flex items-center">
+            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-green-500 mr-2 md:mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{newAirportsVisited.length}</p>
+              <p className="text-xs md:text-sm text-gray-600">New Airports</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-green-600">{optimizationResults.newAirportsVisited.length}</p>
-          <p className="text-sm text-gray-600">New Airports</p>
         </div>
-        
-        <div className="bg-purple-50 border border-purple-200 rounded-md p-4 text-center">
-          <div className="flex items-center justify-center mb-2">
-            <Map className="text-purple-600" size={20} />
+
+        <div className="bg-purple-50 rounded-lg p-3 md:p-4">
+          <div className="flex items-center">
+            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-purple-500 mr-2 md:mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{totalDistance.toFixed(0)}</p>
+              <p className="text-xs md:text-sm text-gray-600">Total Miles</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-purple-600">{optimizationResults.totalDistance.toLocaleString()}</p>
-          <p className="text-sm text-gray-600">Total Miles</p>
         </div>
-        
-        <div className="bg-orange-50 border border-orange-200 rounded-md p-4 text-center">
-          <div className="flex items-center justify-center mb-2">
-            <Clock className="text-orange-600" size={20} />
+
+        <div className="bg-orange-50 rounded-lg p-3 md:p-4">
+          <div className="flex items-center">
+            <Clock className="h-6 w-6 md:h-8 md:w-8 text-orange-500 mr-2 md:mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{minutesToHours(totalDuration)}</p>
+              <p className="text-xs md:text-sm text-gray-600">Hours</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-orange-600">{minutesToHours(optimizationResults.totalDuration)}</p>
-          <p className="text-sm text-gray-600">Hours</p>
+        </div>
+
+        <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
+          <div className="flex items-center">
+            <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 mr-2 md:mr-3 flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xl md:text-2xl font-bold text-gray-900">
+                {pricingData ? formatPrice(pricingData.totalCost) : 'Loading...'}
+              </p>
+              <p className="text-xs md:text-sm text-gray-600">Total Cost</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* New Airports Visited */}
-      {optimizationResults.newAirportsVisited.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-          <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center">
-            <TrendingUp className="mr-2" size={18} />
-            New Airports Visited
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {optimizationResults.newAirportsVisited.map((airport, index) => (
-              <span
-                key={index}
-                className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium"
-              >
-                {airport}
-              </span>
-            ))}
-          </div>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+          <TrendingUp className="h-5 w-5 text-green-500 mr-2" />
+          New Airports Visited
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {newAirportsVisited.map((airport, index) => (
+            <span key={index} className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+              {airport}
+            </span>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Performance Metrics */}
-      <div className="bg-gray-50 border border-gray-200 rounded-md p-4 mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-          <BarChart3 className="mr-2" size={18} />
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+          <BarChart3 className="h-5 w-5 text-blue-500 mr-2" />
           Performance Metrics
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <p className="text-gray-600">Average Flight Duration</p>
-            <p className="font-semibold">{Math.round(optimizationResults.totalDuration / optimizationResults.totalFlights)} min</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="text-center">
+            <p className="text-sm text-gray-600">Average Flight Duration</p>
+            <p className="text-lg font-semibold text-gray-900">{Math.round(totalDuration / totalFlights)} min</p>
           </div>
-          <div>
-            <p className="text-gray-600">Average Distance</p>
-            <p className="font-semibold">{Math.round(optimizationResults.totalDistance / optimizationResults.totalFlights)} mi</p>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">Average Distance</p>
+            <p className="text-lg font-semibold text-gray-900">{Math.round(totalDistance / totalFlights)} mi</p>
           </div>
-          <div>
-            <p className="text-gray-600">New Airports per Flight</p>
-            <p className="font-semibold">{(optimizationResults.newAirportsVisited.length / optimizationResults.totalFlights).toFixed(1)}</p>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">New Airports per Flight</p>
+            <p className="text-lg font-semibold text-gray-900">{(newAirportsVisited.length / totalFlights).toFixed(1)}</p>
           </div>
-          <div>
-            <p className="text-gray-600">Optimization Iterations</p>
-            <p className="font-semibold">{optimizationResults.iterations?.toLocaleString() || 'N/A'}</p>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">Optimization Iterations</p>
+            <p className="text-lg font-semibold text-gray-900">{iterations.toLocaleString()}</p>
           </div>
         </div>
       </div>
 
       {/* Flight Itinerary */}
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Flight Itinerary</h3>
-          <div className="text-sm text-gray-600">
-            {optimizationResults.path.length} flights • {optimizationResults.totalDistance.toLocaleString()} miles
-          </div>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Flight Itinerary</h3>
+        <p className="text-sm text-gray-600 mb-4">{totalFlights} flights • {totalDistance.toFixed(0)} miles</p>
+        
+        <div className="space-y-3">
+          {path.map((flight, index) => {
+            const pricing = pricingData?.pricing.find(p => 
+              p.originalFlight?.['Flight Number'] === flight['Flight Number'] &&
+              p.originalFlight?.Origin === flight.Origin &&
+              p.originalFlight?.Destination === flight.Destination
+            );
+            const flightKey = `${flight['Flight Number']}-${flight.Origin}-${flight.Destination}`;
+            const isExpanded = expandedFlights[flightKey];
 
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {optimizationResults.path.map((flight, index) => (
-            <FlightCard key={index} flight={flight} index={index} />
-          ))}
+            return (
+              <div key={index} className="bg-gray-50 rounded-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 gap-3 sm:gap-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Plane className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">{flight['Flight Number']}</span>
+                      <span className="text-sm text-gray-500">223</span>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <span className="font-medium">{flight.Origin}</span>
+                        <span className="text-xs sm:text-sm text-gray-500">
+                          {formatDateTime(new Date(flight['Departure Datetime']))}
+                        </span>
+                      </div>
+                      <span className="text-gray-400 hidden sm:inline">→</span>
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <span className="font-medium">{flight.Destination}</span>
+                        <span className="text-xs sm:text-sm text-gray-500">
+                          {formatDateTime(new Date(flight['Arrival Datetime']))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                    <span className="text-xs sm:text-sm text-gray-600">
+                      {kilometersToMiles(flight['Distance (KM)']).toFixed(0)}mi | {flight['Elapsed Minutes']}min
+                    </span>
+                    {pricing ? (
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg font-bold text-green-600">
+                          {formatPrice(pricing.price, pricing.currency)}
+                        </span>
+                        {pricing.bookingLink && (
+                          <a
+                            href={pricing.bookingLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Book
+                          </a>
+                        )}
+                        <button
+                          onClick={() => toggleFlightExpansion(flight)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-400">Price unavailable</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Pricing Comparison Section */}
+                <FlightPricingComparison flight={flight} isExpanded={isExpanded} />
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center space-x-4 pt-4 border-t border-gray-200">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <button
           onClick={onOptimizeAgain}
-          disabled={isLoading}
-          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center"
+          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-md transition-colors flex items-center justify-center text-sm md:text-base"
         >
-          <RefreshCw className="mr-2" size={16} />
+          <RefreshCw className="h-5 w-5 mr-2" />
           Optimize Again
         </button>
         <button
-          onClick={handleDownload}
-          className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 flex items-center"
+          onClick={() => {
+            downloadFlightsAsCsv(path);
+            onDownload();
+          }}
+          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-md transition-colors flex items-center justify-center text-sm md:text-base"
         >
-          <Download className="mr-2" size={16} />
+          <Download className="h-5 w-5 mr-2" />
           Download Results
         </button>
       </div>
