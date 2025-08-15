@@ -137,11 +137,18 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
             const response = await fetch('/api/config');
             const config = await response.json();
             
-            if (config.hasKey) {
+            console.log('🔍 Server response:', {
+              status: response.status,
+              hasKey: config.hasKey,
+              error: config.error,
+              debug: config.debug
+            });
+            
+            if (config.hasKey && config.googleMapsApiKey) {
               apiKey = config.googleMapsApiKey;
               console.log('✅ API key fetched from server successfully');
             } else {
-              throw new Error(config.error || 'Failed to get API key from server');
+              throw new Error(`Server API key fetch failed: ${config.error || 'Unknown error'}`);
             }
           }
           
