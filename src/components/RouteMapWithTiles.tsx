@@ -127,33 +127,54 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
       // Load Google Maps script if not already loaded
       if (!window.google) {
         const script = document.createElement('script');
-        // Use environment variable for API key, fallback to a placeholder
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         
-        // Enhanced debugging for production
-        console.log('Environment check:', {
-          isDev: process.env.NODE_ENV === 'development',
-          hasApiKey: !!apiKey,
-          apiKeyLength: apiKey?.length || 0,
-          apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND'
-        });
+        try {
+          // First try environment variable, then fallback to API endpoint
+          let apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+          
+          if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+            console.log('🔄 Fetching API key from server...');
+            const response = await fetch('/api/config');
+            const config = await response.json();
+            
+            if (config.hasKey) {
+              apiKey = config.googleMapsApiKey;
+              console.log('✅ API key fetched from server successfully');
+            } else {
+              throw new Error(config.error || 'Failed to get API key from server');
+            }
+          }
+          
+          // Enhanced debugging for production
+          console.log('API Key check:', {
+            source: apiKey === process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? 'environment' : 'server',
+            hasApiKey: !!apiKey,
+            apiKeyLength: apiKey?.length || 0,
+            apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND'
+          });
+          
+          if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+            throw new Error('Google Maps API key is missing or invalid');
+          }
+
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
+          script.async = true;
+          script.defer = true;
         
-        if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-          console.error('❌ Google Maps API key is missing or invalid!');
+        } catch (error) {
+          console.error('❌ Failed to load Google Maps API key:', error);
           if (mapRef.current) {
             mapRef.current.innerHTML = `
-              <div style="display: flex; flex-col; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
                 <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps API Key Required</h3>
-                <p style="margin-bottom: 10px;">Environment variable NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing or invalid.</p>
-                <p style="font-size: 12px; color: #999;">Check your Vercel environment variables dashboard.</p>
+                <p style="margin-bottom: 10px;">Failed to load Google Maps API key.</p>
+                <p style="font-size: 12px; color: #999;">Check your Vercel environment variables: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
+                <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
               </div>
             `;
           }
           return;
         }
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
-        script.async = true;
-        script.defer = true;
         
         // Set up global callback
         (window as any).initGoogleMaps = () => {
