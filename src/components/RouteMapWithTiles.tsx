@@ -129,6 +129,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         const script = document.createElement('script');
         // Use environment variable for API key, fallback to a placeholder
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
+        console.log('Google Maps API Key loaded:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
