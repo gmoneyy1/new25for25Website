@@ -191,7 +191,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
       </div>
 
       {/* Summary Cards - Mobile Optimized Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="bg-blue-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
             <Plane className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
@@ -232,6 +232,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
         </div>
 
+        {/* Temporarily hidden - pricing feature in development
         <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
             <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 mr-2 md:mr-3 flex-shrink-0" />
@@ -243,6 +244,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
             </div>
           </div>
         </div>
+        */}
       </div>
 
       {/* New Airports Visited */}
@@ -332,7 +334,8 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
                     <span className="text-xs sm:text-sm text-gray-600">
                       {kilometersToMiles(flight['Distance (KM)']).toFixed(0)}mi | {flight['Elapsed Minutes']}min
                     </span>
-                    {pricing ? (
+                    {/* Temporarily hidden - pricing feature in development */}
+                    {false && pricing ? (
                       <div className="flex items-center space-x-2">
                         <span className="text-lg font-bold text-green-600">
                           {formatPrice(pricing.price, pricing.currency)}
@@ -355,14 +358,14 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
                       </div>
-                    ) : (
+                    ) : false && (
                       <span className="text-sm text-gray-400">Price unavailable</span>
                     )}
                   </div>
                 </div>
                 
-                {/* Pricing Comparison Section */}
-                <FlightPricingComparison flight={flight} isExpanded={isExpanded} />
+                {/* Pricing Comparison Section - Temporarily hidden */}
+                {false && <FlightPricingComparison flight={flight} isExpanded={isExpanded} />}
               </div>
             );
           })}
