@@ -128,8 +128,29 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
       if (!window.google) {
         const script = document.createElement('script');
         // Use environment variable for API key, fallback to a placeholder
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE';
-        console.log('Google Maps API Key loaded:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+        
+        // Enhanced debugging for production
+        console.log('Environment check:', {
+          isDev: process.env.NODE_ENV === 'development',
+          hasApiKey: !!apiKey,
+          apiKeyLength: apiKey?.length || 0,
+          apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND'
+        });
+        
+        if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+          console.error('❌ Google Maps API key is missing or invalid!');
+          if (mapRef.current) {
+            mapRef.current.innerHTML = `
+              <div style="display: flex; flex-col; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
+                <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps API Key Required</h3>
+                <p style="margin-bottom: 10px;">Environment variable NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing or invalid.</p>
+                <p style="font-size: 12px; color: #999;">Check your Vercel environment variables dashboard.</p>
+              </div>
+            `;
+          }
+          return;
+        }
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
