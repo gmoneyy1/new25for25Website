@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 /**
  * GET /api/config
  * Provides client configuration including Google Maps API key
+ * Updated: Force fresh deployment to clear cache
  */
 export async function GET() {
   try {
