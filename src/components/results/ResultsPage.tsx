@@ -164,7 +164,8 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           <Plane className="h-6 w-6 text-blue-500 mr-2" />
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Optimization Results</h2>
-            {isFromCache && (
+            {/* Cache indicator hidden from UI but functionality preserved */}
+            {false && isFromCache && (
               <div className="flex items-center text-sm text-green-600 mt-1">
                 <Zap className="h-4 w-4 mr-1" />
                 Loaded from cache
