@@ -239,17 +239,30 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           
         } catch (error) {
           console.error('❌ Failed to get secure maps configuration:', error);
-          if (mapRef.current) {
-            mapRef.current.innerHTML = `
-              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
-                <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Configuration Error</h3>
-                <p style="margin-bottom: 10px;">Failed to load secure maps configuration.</p>
-                <p style="font-size: 12px; color: #999;">Check your server environment variables: GOOGLE_MAPS_API_KEY</p>
-                <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-              </div>
-            `;
+          
+          // Development fallback: try direct environment variable access
+          console.log('🔄 Trying development fallback...');
+          const fallbackApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+          
+          if (fallbackApiKey && fallbackApiKey !== 'YOUR_API_KEY_HERE') {
+            console.log('✅ Using development fallback API key');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${fallbackApiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
+            script.async = true;
+            script.defer = true;
+          } else {
+            console.error('❌ No fallback API key available');
+            if (mapRef.current) {
+              mapRef.current.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
+                  <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Configuration Error</h3>
+                  <p style="margin-bottom: 10px;">Failed to load maps configuration.</p>
+                  <p style="font-size: 12px; color: #999;">Check environment variables or restart development server</p>
+                  <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+                </div>
+              `;
+            }
+            return;
           }
-          return;
         }
         
         // Set up global callback
