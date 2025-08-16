@@ -221,7 +221,10 @@ export async function searchFlightPrices(request: PricingSearchRequest): Promise
 
     for (const endpoint of endpoints) {
       try {
-        console.log(`Trying JetBlue API endpoint: ${endpoint}`);
+        // Only log in development mode - prevent production data exposure
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Trying JetBlue API endpoint: ${endpoint}`);
+        }
         
         const response = await fetch(endpoint, {
           method: 'GET',
@@ -236,7 +239,10 @@ export async function searchFlightPrices(request: PricingSearchRequest): Promise
 
         if (response.ok) {
           const data = await response.json();
-          console.log('JetBlue API response:', data);
+          // Only log response data in development - contains sensitive pricing info
+          if (process.env.NODE_ENV === 'development') {
+            console.log('JetBlue API response data available, flights found:', data.flights?.length || 0);
+          }
           
           // Transform JetBlue response to our format - only include JetBlue flights
           const flights: FlightPricing[] = data.flights?.filter((flight: any) => 
@@ -263,7 +269,10 @@ export async function searchFlightPrices(request: PricingSearchRequest): Promise
           }
         }
       } catch (error) {
-        console.log(`JetBlue API endpoint failed: ${endpoint}`, error);
+        // Only log detailed errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`JetBlue API endpoint failed: ${endpoint}`, error);
+        }
         continue; // Try next endpoint
       }
     }

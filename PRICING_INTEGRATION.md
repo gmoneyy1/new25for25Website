@@ -29,11 +29,12 @@ This document describes the flight pricing integration for the JetBlue 25for25 R
 1. Register at [Amadeus for Developers](https://developers.amadeus.com/)
 2. Create a new application
 3. Get API key and secret
-4. Add to environment variables:
+4. Add to environment variables (SERVER-SIDE ONLY):
    ```
-   NEXT_PUBLIC_AMADEUS_API_KEY=your_api_key
-   NEXT_PUBLIC_AMADEUS_API_SECRET=your_api_secret
+   AMADEUS_API_KEY=your_api_key
+   AMADEUS_API_SECRET=your_api_secret
    ```
+   **⚠️ SECURITY**: Do NOT use NEXT_PUBLIC_ prefix - keeps keys server-side only
 
 **Rate Limits:**
 - Free tier: 1,000 requests/month
@@ -53,10 +54,11 @@ This document describes the flight pricing integration for the JetBlue 25for25 R
 **Setup:**
 1. Apply for partnership at [Skyscanner Partners](https://www.partners.skyscanner.net/)
 2. Get API key
-3. Add to environment variables:
+3. Add to environment variables (SERVER-SIDE ONLY):
    ```
-   NEXT_PUBLIC_SKYSCANNER_API_KEY=your_api_key
+   SKYSCANNER_API_KEY=your_api_key
    ```
+   **⚠️ SECURITY**: Do NOT use NEXT_PUBLIC_ prefix - keeps keys server-side only
 
 ### 3. **Google Flights API** (Limited)
 **Pros:**
@@ -96,15 +98,22 @@ This document describes the flight pricing integration for the JetBlue 25for25 R
 Create a `.env.local` file in your project root:
 
 ```env
-# Amadeus API (Primary)
-NEXT_PUBLIC_AMADEUS_API_KEY=your_amadeus_api_key
-NEXT_PUBLIC_AMADEUS_API_SECRET=your_amadeus_api_secret
+# 🔒 SECURITY WARNING: All pricing API keys MUST be server-side only
+# DO NOT use NEXT_PUBLIC_ prefix for any API keys!
 
-# Skyscanner API (Fallback)
-NEXT_PUBLIC_SKYSCANNER_API_KEY=your_skyscanner_api_key
+# Amadeus API (Primary) - SERVER-SIDE ONLY
+AMADEUS_API_KEY=your_amadeus_api_key
+AMADEUS_API_SECRET=your_amadeus_api_secret
 
-# Google Flights API (Limited)
-NEXT_PUBLIC_GOOGLE_FLIGHTS_API_KEY=your_google_api_key
+# Skyscanner API (Fallback) - SERVER-SIDE ONLY
+SKYSCANNER_API_KEY=your_skyscanner_api_key
+
+# Google Flights API (Limited) - SERVER-SIDE ONLY
+GOOGLE_FLIGHTS_API_KEY=your_google_api_key
+
+# ⚠️ NEVER expose these to client-side code!
+# ⚠️ API keys with NEXT_PUBLIC_ prefix are bundled into client JavaScript
+# ⚠️ This allows attackers to steal your API keys and quota
 ```
 
 ## API Usage Examples

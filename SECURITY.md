@@ -63,6 +63,23 @@ To verify API keys are not exposed:
 3. **View page source** - No API keys in HTML
 4. **Check bundle** - No API keys in built JavaScript files
 
+### Google Maps API Security
+
+**Configure Domain Restrictions:**
+1. Open [Google Cloud Console](https://console.cloud.google.com/)
+2. Navigate to APIs & Services > Credentials
+3. Select your Maps API key
+4. Under "Application restrictions":
+   - Select "HTTP referrers (web sites)"
+   - Add your production domain: `https://25for25.ai/*`
+   - Add development domains: `http://localhost:3000/*`
+5. Under "API restrictions":
+   - Select "Restrict key"
+   - Enable only: Maps JavaScript API
+6. Save changes
+
+This prevents unauthorized use of your Google Maps quota.
+
 ### Security Checklist
 
 - [ ] `.env.local` is in `.gitignore`
@@ -71,6 +88,8 @@ To verify API keys are not exposed:
 - [ ] Rate limiting is configured
 - [ ] Security headers are applied
 - [ ] Origin validation is active
+- [ ] Google Maps API has domain restrictions configured
+- [ ] All pricing API keys use server-side only variables
 
 ### Emergency Response
 
