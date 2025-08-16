@@ -28,7 +28,10 @@ const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
       body: JSON.stringify({ config }),
     });
 
-    console.log('📡 API response status:', response.status);
+    // Only log API details in development to prevent production data exposure
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📡 API response status:', response.status);
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Network error' }));
