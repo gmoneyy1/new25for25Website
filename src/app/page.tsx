@@ -43,7 +43,7 @@ const JetBlueOptimizer = () => {
     endTime: '23:59',
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',
-    visitedAirports: 'BED',
+    visitedAirports: '',
     minConnectionTime: 60,
     domesticOnly: false
   });
