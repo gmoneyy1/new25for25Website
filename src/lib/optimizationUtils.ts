@@ -84,7 +84,11 @@ export const parseAirportSets = (config: RouteConfig) => {
   return {
     startAirports: new Set(config.startAirports.split(',').map(s => s.trim())),
     endAirports: new Set(config.endAirports.split(',').map(s => s.trim())),
-    visitedAirports: new Set(config.visitedAirports.split(',').map(s => s.trim()))
+    visitedAirports: new Set(
+      config.visitedAirports && config.visitedAirports.trim() !== '' 
+        ? config.visitedAirports.split(',').map(s => s.trim()).filter(s => s)
+        : []
+    )
   };
 };
 

@@ -25,7 +25,11 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   };
 
   const validateForm = (): boolean => {
-    return !Object.values(errors).some(error => error && error.length > 0);
+    const hasErrors = Object.values(errors).some(error => error && error.length > 0);
+    console.log('🔍 validateForm called, errors:', errors);
+    console.log('🔍 hasErrors:', hasErrors);
+    console.log('🔍 Object.values(errors):', Object.values(errors));
+    return !hasErrors;
   };
 
   return (
@@ -34,6 +38,12 @@ export const RouteForm: React.FC<RouteFormProps> = ({
         <Calendar className="mr-2" size={20} />
         Route Configuration
       </h2>
+      
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-sm text-blue-800">
+          <span className="text-red-500 font-medium">*</span> Required fields must be filled before optimization can run.
+        </p>
+      </div>
       
       <div className="space-y-4 sm:space-y-6">
         {/* Date and Time Configuration */}
@@ -56,7 +66,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div className="flex flex-col min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Date
+                  Start Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -77,7 +87,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Start Time
+                  Start Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -100,7 +110,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div className="flex flex-col min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
+                  End Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -121,7 +131,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Time
+                  End Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -149,7 +159,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Airports (comma-separated)
+                Start Airports (comma-separated) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -160,17 +170,21 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                   errors.startAirports ? 'border-red-300' : 'border-gray-300'
                 }`}
               />
-              {errors.startAirports && (
+              {errors.startAirports ? (
                 <p className="text-red-500 text-xs mt-1 flex items-center">
                   <AlertCircle size={12} className="mr-1" />
                   {errors.startAirports}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter 3-letter airport codes separated by commas
                 </p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Airports (comma-separated)
+                End Airports (comma-separated) <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -181,10 +195,14 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                   errors.endAirports ? 'border-red-300' : 'border-gray-300'
                 }`}
               />
-              {errors.endAirports && (
+              {errors.endAirports ? (
                 <p className="text-red-500 text-xs mt-1 flex items-center">
                   <AlertCircle size={12} className="mr-1" />
                   {errors.endAirports}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter 3-letter airport codes separated by commas
                 </p>
               )}
             </div>
@@ -216,18 +234,9 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             {/* Domestic Routes Toggle */}
             <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <label className="block text-sm font-medium text-blue-800">
-                    Domestic Routes Only
-                  </label>
-                  <div className="group relative">
-                    <div className="w-4 h-4 text-blue-600 cursor-help">ⓘ</div>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                      International airports (CUN, AMS, LHR, etc.) are automatically added to your "Already Visited" list, so they won't be considered as new destinations. This makes the 25for25 challenge much more manageable!
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                    </div>
-                  </div>
-                </div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">
+                  Domestic Routes Only
+                </label>
                 <p className="text-xs text-blue-600">
                   When enabled, only US domestic flights will be considered for optimization
                 </p>
@@ -281,9 +290,36 @@ export const RouteForm: React.FC<RouteFormProps> = ({
           </div>
         </div>
 
+        {/* Form Validation Summary */}
+        {Object.keys(errors).some(key => errors[key]) && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-3">
+            <h4 className="text-sm font-medium text-red-800 mb-2 flex items-center">
+              <AlertCircle size={16} className="mr-2" />
+              Please fix the following errors:
+            </h4>
+            <ul className="text-sm text-red-700 space-y-1">
+              {Object.entries(errors).map(([field, error]) => 
+                error ? (
+                  <li key={field} className="flex items-start">
+                    <span className="text-red-500 mr-2">•</span>
+                    <span className="capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}: {error}</span>
+                  </li>
+                ) : null
+              )}
+            </ul>
+          </div>
+        )}
+
         {/* Optimize Button */}
         <button
-          onClick={onOptimize}
+          onClick={() => {
+            console.log('🔘 Optimize button clicked!');
+            console.log('📋 Current config:', config);
+            console.log('✅ Form valid:', validateForm());
+            console.log('📊 Has data:', hasData);
+            console.log('⏳ Is loading:', isLoading);
+            onOptimize();
+          }}
           disabled={!hasData || isLoading || !validateForm()}
           className="w-full bg-blue-600 text-white py-4 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-medium transition-colors text-base sm:text-sm min-h-[48px]"
         >
@@ -292,6 +328,12 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
               <span className="hidden sm:inline">Optimizing Route...</span>
               <span className="sm:hidden">Optimizing...</span>
+            </>
+          ) : !validateForm() ? (
+            <>
+              <AlertCircle className="mr-2" size={18} />
+              <span className="hidden sm:inline">Fix Errors to Continue</span>
+              <span className="sm:hidden">Fix Errors</span>
             </>
           ) : (
             <>

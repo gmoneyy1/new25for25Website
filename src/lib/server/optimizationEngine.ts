@@ -116,10 +116,15 @@ const buildFlightIndex = (flights: Flight[]): Record<string, Flight[]> => {
  * @returns Object with parsed airport sets
  */
 const parseAirportSets = (config: RouteConfig) => {
+  // Filter out BED (dummy airport) and ensure clean airport codes
+  const visitedAirports = config.visitedAirports && config.visitedAirports.trim() !== '' 
+    ? config.visitedAirports.split(',').map(s => s.trim()).filter(s => s && s !== 'BED')
+    : [];
+  
   return {
     startAirports: new Set(config.startAirports.split(',').map(s => s.trim())),
     endAirports: new Set(config.endAirports.split(',').map(s => s.trim())),
-    visitedAirports: new Set(config.visitedAirports.split(',').map(s => s.trim()))
+    visitedAirports: new Set(visitedAirports)
   };
 };
 
@@ -190,7 +195,9 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     const validFlights = filterValidFlights(flights, config);
     
     if (validFlights.length === 0) {
-      return { error: 'No valid flights found in the specified time window' };
+      return { 
+        error: 'No flights available in the specified time window. Try adjusting your dates or expanding the time range. Available data covers August 1 - December 31, 2025.' 
+      };
     }
 
     // Build flight index by origin
@@ -350,7 +357,9 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         };
       }
       
-      return { error: 'No valid route found within the constraints. Try extending the time window or reducing connection time.' };
+      return { 
+        error: 'No possible route found with your current settings. Try:\n• Expanding your time window\n• Reducing minimum connection time\n• Adding more start/end airports\n• Adjusting your visited airports list' 
+      };
     }
 
   } catch (error) {

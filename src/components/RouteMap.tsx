@@ -118,6 +118,7 @@ const airportCoordinates: { [key: string]: { lat: number; lng: number; name: str
   
   // Additional missing JetBlue destinations
   'AUA': { lat: 12.5014, lng: -70.0152, name: 'Queen Beatrix International Airport', city: 'Oranjestad' },
+  'BDA': { lat: 32.3640, lng: -64.6786, name: 'L.F. Wade International Airport', city: 'Bermuda' },
   'TQO': { lat: 18.1158, lng: -65.4224, name: 'Antonio Rivera Rodríguez Airport', city: 'Vieques' },
   'SVD': { lat: 13.1443, lng: -61.2109, name: 'Argyle International Airport', city: 'Kingstown' },
   'SXM': { lat: 18.0409, lng: -63.1089, name: 'Princess Juliana International Airport', city: 'Philipsburg' },

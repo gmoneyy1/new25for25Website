@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, TrendingUp, BarChart3, Share, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, TrendingUp, BarChart3, Share, ChevronDown, ChevronUp, Zap, AlertCircle } from 'lucide-react';
 import { Results, FlightWithPricing, RoutePricingData, PricingComparison, Flight } from '../../lib/types';
 import { useRoutePricing, usePricingComparison } from '../../hooks/usePricing';
 import { formatPrice } from '../../lib/pricingService';
@@ -138,17 +138,39 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
   }
 
   if ('error' in results) {
+    // Split error message by newlines to handle multi-line errors
+    const errorLines = results.error.split('\n');
+    
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="text-center py-12">
-          <div className="text-red-500 text-lg font-medium mb-2">Optimization Error</div>
-          <p className="text-gray-600 mb-4">{results.error}</p>
-          <button
-            onClick={onOptimizeAgain}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="text-red-500 text-lg font-medium mb-4 flex items-center justify-center">
+            <AlertCircle className="h-6 w-6 mr-2" />
+            No Solution Found
+          </div>
+          
+          <div className="text-gray-600 mb-6 max-w-md mx-auto">
+            {errorLines.map((line, index) => (
+              <p key={index} className={`mb-2 ${line.startsWith('•') ? 'text-left pl-4' : 'text-center'}`}>
+                {line}
+              </p>
+            ))}
+          </div>
+          
+          <div className="space-y-3">
+            <button
+              onClick={onOptimizeAgain}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md transition-colors mr-3"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-md transition-colors"
+            >
+              Adjust Settings
+            </button>
+          </div>
         </div>
       </div>
     );

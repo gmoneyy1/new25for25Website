@@ -50,6 +50,12 @@ const airportCoordinates = {
   'SDQ': { lat: 18.4297, lng: -69.6689 },
   'PUJ': { lat: 18.5674, lng: -68.3634 },
   'NAS': { lat: 25.0389, lng: -77.4661 },
+  'HYA': { lat: 41.6693, lng: -70.2803 },
+  // Additional international airports found in CSV analysis
+  'AUA': { lat: 12.5014, lng: -70.0152 }, // Aruba
+  'BDA': { lat: 32.3640, lng: -64.6786 }, // Bermuda
+  'BQN': { lat: 18.4949, lng: -67.1354 }, // Aguadilla, Puerto Rico
+  'PSE': { lat: 18.0083, lng: -66.5630 }, // Ponce, Puerto Rico
   
   // Additional JetBlue destinations
   'BUF': { lat: 42.9405, lng: -78.7322 },
@@ -130,10 +136,11 @@ const airportCoordinates = {
   'SMF': { lat: 40.6955, lng: -121.5908 },
   'EYW': { lat: 24.5561, lng: -81.7596 },
   'ISP': { lat: 40.7952, lng: -73.1002 },
+  'HYA': { lat: 41.6693, lng: -70.2803 }, // Hyannis, MA (US domestic)
   
   // Additional missing JetBlue destinations
   'AUA': { lat: 12.5014, lng: -70.0152 },
-  'TQO': { lat: 18.1158, lng: -65.4224 },
+  'TQO': { lat: 18.1158, lng: -65.4224 }, // Taos, NM (US domestic)
   'SVD': { lat: 13.1443, lng: -61.2109 },
   'SXM': { lat: 18.0409, lng: -63.1089 },
   'STT': { lat: 18.3373, lng: -64.9734 },
@@ -175,7 +182,11 @@ function optimizeRouteWorker(flights, config) {
   // Parse configuration
   const startAirportList = startAirports.split(',').map(a => a.trim());
   const endAirportList = endAirports.split(',').map(a => a.trim());
-  const visitedSet = new Set(visitedAirports.split(',').map(a => a.trim()).filter(Boolean));
+  const visitedSet = new Set(
+    visitedAirports && visitedAirports.trim() !== '' 
+      ? visitedAirports.split(',').map(a => a.trim()).filter(a => a)
+      : []
+  );
   
   const startDateTime = new Date(`${startDate} ${startTime}`);
   const endDateTime = new Date(`${endDate} ${endTime}`);
@@ -187,7 +198,9 @@ function optimizeRouteWorker(flights, config) {
   });
   
   if (validFlights.length === 0) {
-    return { error: 'No flights available in the specified time window' };
+    return { 
+      error: 'No flights available in the specified time window. Try adjusting your dates or expanding the time range. Available data covers August 1 - December 31, 2025.' 
+    };
   }
   
   // A* search
@@ -299,7 +312,9 @@ function optimizeRouteWorker(flights, config) {
   }
   
   if (!bestSolution) {
-    return { error: 'No valid route found within the constraints' };
+    return { 
+      error: 'No possible route found with your current settings. Try expanding your time window, reducing connection time, or adding more airports.' 
+    };
   }
   
   return bestSolution;
