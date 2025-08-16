@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Trash2, RefreshCw } from 'lucide-react';
+import { Save, Trash2, RefreshCw, Check } from 'lucide-react';
 import { RouteConfig, Results, Flight } from '../lib/types';
+import { useToast } from './ui/use-toast';
 
 interface SavedRoute {
   id: string;
@@ -56,6 +57,9 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [isAddingRoute, setIsAddingRoute] = useState(false);
   const [newRouteName, setNewRouteName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const { toast } = useToast();
 
   // Load routes from localStorage
   useEffect(() => {
@@ -94,6 +98,8 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
       // Complete the save
       if (!newRouteName.trim()) return;
       
+      setIsSaving(true);
+      
       const newRoute: SavedRoute = {
         id: Date.now().toString(),
         name: newRouteName.trim(),
@@ -108,10 +114,21 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
         updatedRoutes = updatedRoutes.slice(0, MAX_ROUTES);
       }
 
-      setSavedRoutes(updatedRoutes);
-      saveRoutes(updatedRoutes);
-      setIsAddingRoute(false);
-      setNewRouteName('');
+      // Simulate a small delay for better UX
+      setTimeout(() => {
+        setSavedRoutes(updatedRoutes);
+        saveRoutes(updatedRoutes);
+        setIsAddingRoute(false);
+        setNewRouteName('');
+        setIsSaving(false);
+        
+        // Show success toast
+        toast({
+          title: "Route Saved!",
+          description: `"${newRouteName.trim()}" has been saved successfully.`,
+          duration: 3000,
+        });
+      }, 500);
     } else {
       // Start the save process
       setNewRouteName(generateRouteName(currentConfig, currentResults));
@@ -128,6 +145,13 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
     console.log('Loading route:', route.name, route.config);
     onLoadConfiguration(route.config);
     
+    // Show success toast
+    toast({
+      title: "Route Loaded!",
+      description: `"${route.name}" configuration has been loaded.`,
+      duration: 3000,
+    });
+    
     // Provide visual feedback
     const button = event.currentTarget as HTMLElement;
     const originalText = button.textContent;
@@ -143,16 +167,34 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
   };
 
   const handleDeleteRoute = (id: string) => {
+    const routeToDelete = savedRoutes.find(route => route.id === id);
     const updatedRoutes = savedRoutes.filter(route => route.id !== id);
     setSavedRoutes(updatedRoutes);
     saveRoutes(updatedRoutes);
+    
+    // Show success toast
+    if (routeToDelete) {
+      toast({
+        title: "Route Deleted",
+        description: `"${routeToDelete.name}" has been removed.`,
+        duration: 3000,
+      });
+    }
   };
 
   const handleClearAll = () => {
     if (savedRoutes.length === 0) return;
     if (confirm('Delete all saved routes?')) {
+      const routeCount = savedRoutes.length;
       setSavedRoutes([]);
       saveRoutes([]);
+      
+      // Show success toast
+      toast({
+        title: "All Routes Cleared",
+        description: `${routeCount} saved route${routeCount === 1 ? '' : 's'} have been removed.`,
+        duration: 3000,
+      });
     }
   };
 
@@ -176,8 +218,17 @@ export const SimpleSavedRoutes: React.FC<SimpleSavedRoutesProps> = ({
                   disabled={!newRouteName.trim()}
                   className="flex items-center px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
                 >
-                  <Save className="h-4 w-4 mr-1" />
-                  Save
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1" />
+                      Save
+                    </>
+                  )}
                 </button>
               </>
             ) : (

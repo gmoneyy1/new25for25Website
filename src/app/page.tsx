@@ -95,49 +95,93 @@ const JetBlueOptimizer = () => {
     setFormErrors(errors);
   }, [config]);
 
+  // Debug: Monitor currentConfig changes
+  useEffect(() => {
+    console.log('🔄 currentConfig changed:', currentConfig);
+    if (currentConfig) {
+      console.log('📊 Triggering optimization with config:', currentConfig);
+    }
+  }, [currentConfig]);
+
   const handleOptimizeRoute = useCallback(async () => {
+    console.log('🔍 handleOptimizeRoute called');
+    
     // Validate form before submitting
     const errors = validateRouteConfig(config);
+    console.log('📋 Form validation errors:', errors);
+    
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      alert('Please fix the form errors before optimizing.');
+      console.log('❌ Form validation failed, scrolling to top');
+      // Scroll to top to show validation errors
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
+    console.log('✅ Form validation passed');
+
     // Handle domestic-only logic
     let optimizationConfig = { ...config };
+    
+    // Always ensure there's at least one visited airport for backend compatibility
+    // Use "BED" (not in JetBlue network) as a hidden default when field is empty
+    let effectiveVisitedAirports = config.visitedAirports && config.visitedAirports.trim() !== '' 
+      ? config.visitedAirports 
+      : 'BED';
+    
     if (config.domesticOnly) {
-      // List of international airports to exclude
+      // Comprehensive list of ALL international airports to exclude
       const internationalAirports = [
-        'AMS', 'CDG', 'LHR', 'LGW', 'DUB', 'EDI', 'MAD', 'LIR', 'SJD', 'SJO',
-        'GUA', 'SAP', 'MDE', 'CTG', 'GEO', 'GYE', 'BZE', 'CUR', 'GND', 'ANU',
-        'BGI', 'KIN', 'MBJ', 'POP', 'POS', 'SKB', 'BON', 'GCM', 'PLS', 'CUN'
+        // Europe
+        'AMS', 'CDG', 'LHR', 'LGW', 'DUB', 'EDI', 'MAD', 'LIR',
+        // Mexico & Central America
+        'SJD', 'SJO', 'GUA', 'SAP', 'MDE', 'CTG', 'CUN',
+        // South America
+        'GEO', 'GYE', 'BZE',
+        // Caribbean
+        'CUR', 'GND', 'ANU', 'BGI', 'KIN', 'MBJ', 'POP', 'POS', 'SKB', 'BON', 'GCM', 'PLS',
+        // Additional international destinations
+        'YVR', 'SVD', 'SXM', 'STT', 'STX', 'UVF',
+        // Missing international airports that were causing issues
+        'PUJ', 'STI', 'SDQ', 'NAS',
+        // Additional international airports found in CSV analysis
+        'AUA', 'BDA', 'BQN', 'SJU', 'PSE'
       ];
       
-      // Add international airports to visited airports (hidden from UI)
-      const currentVisited = config.visitedAirports ? config.visitedAirports.split(',').map(a => a.trim()) : [];
+      // Always add ALL international airports to visited airports (hidden from UI)
+      // This ensures they're completely excluded from optimization
+      const currentVisited = effectiveVisitedAirports.split(',').map(a => a.trim()).filter(a => a && a !== 'BED');
       const allInternational = Array.from(new Set([...currentVisited, ...internationalAirports]));
       optimizationConfig.visitedAirports = allInternational.join(',');
       
-      console.log('🌍 Domestic-only mode: Excluding international airports:', internationalAirports);
+      console.log('🌍 Domestic-only mode: Excluding ALL international airports:', internationalAirports);
+      console.log('🚫 Total airports excluded:', allInternational.length);
+    } else {
+      // For international mode, just use the effective visited airports
+      optimizationConfig.visitedAirports = effectiveVisitedAirports;
     }
+    
+    console.log('🔧 Effective visited airports for optimization:', optimizationConfig.visitedAirports);
 
     console.log('🚀 Starting optimization for config:', optimizationConfig);
     
     if (useWebWorker && supportsWorkers && flights.length > 0) {
-      console.log('Using web worker optimization');
+      console.log('🔄 Using web worker optimization');
       try {
         const result = await workerOptimize(flights, optimizationConfig);
         // Manually update cache and UI state
         // We'll need to update the hook to handle worker results
-        console.log('Worker result:', result);
+        console.log('✅ Worker result:', result);
       } catch (error) {
-        console.error('Worker optimization failed:', error);
+        console.error('❌ Worker optimization failed:', error);
         // Fallback to regular optimization
+        console.log('🔄 Falling back to regular optimization');
         setCurrentConfig(optimizationConfig);
       }
     } else {
       // Use regular optimization
+      console.log('🔄 Using regular optimization (no web worker)');
+      console.log('📊 Setting currentConfig to:', optimizationConfig);
       setCurrentConfig(optimizationConfig);
     }
   }, [config, useWebWorker, supportsWorkers, flights, workerOptimize]);
@@ -208,12 +252,19 @@ const JetBlueOptimizer = () => {
             <div className="flex flex-wrap justify-center gap-3 mt-4">
               <button
                 onClick={() => setShowMap(!showMap)}
+                disabled={!results || !('path' in results)}
                 className={`flex items-center px-4 py-2 text-sm rounded-full transition-colors min-h-[40px] ${
-                  showMap 
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  !results || !('path' in results)
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : showMap 
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
-                title="Toggle Route Map"
+                title={
+                  !results || !('path' in results)
+                    ? 'Run optimization first to view route map'
+                    : 'Toggle Route Map'
+                }
               >
                 <MapPin className="h-4 w-4 mr-2" />
                 {showMap ? 'Hide Map' : 'Show Map'}
@@ -231,6 +282,16 @@ const JetBlueOptimizer = () => {
                 {showSavedConfigs ? 'Hide Saved' : 'Quick Save'}
               </button>
             </div>
+            
+            {/* Map Status Indicator */}
+            {!results || !('path' in results) ? (
+              <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg inline-flex items-center">
+                <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                <span className="text-blue-700 text-sm">
+                  Map will be available after running optimization
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -248,13 +309,31 @@ const JetBlueOptimizer = () => {
         )}
 
         {/* Route Map Panel */}
-        {showMap && results && 'path' in results && (
+        {showMap && (
           <div className="mb-6">
             <ErrorBoundary>
-              <div className="bg-white rounded-lg shadow-md p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Visualization</h3>
-                <RouteMapWithTiles flights={results.path} height="500px" />
-              </div>
+              {results && 'path' in results ? (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Visualization</h3>
+                  <RouteMapWithTiles flights={results.path} height="500px" />
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <div className="text-center py-8">
+                    <MapPin className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Route Data Available</h3>
+                    <p className="text-gray-500 mb-4">
+                      Run the route optimization first to see your flight path visualized on the map.
+                    </p>
+                    <button
+                      onClick={() => setShowMap(false)}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                    >
+                      Hide Map
+                    </button>
+                  </div>
+                </div>
+              )}
             </ErrorBoundary>
           </div>
         )}

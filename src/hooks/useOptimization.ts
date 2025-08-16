@@ -8,36 +8,57 @@ const createConfigHash = (config: RouteConfig): string => {
     ...config,
     startAirports: config.startAirports.split(',').map(s => s.trim()).sort().join(','),
     endAirports: config.endAirports.split(',').map(s => s.trim()).sort().join(','),
-    visitedAirports: config.visitedAirports.split(',').map(s => s.trim()).filter(Boolean).sort().join(','),
+          visitedAirports: config.visitedAirports && config.visitedAirports.trim() !== '' 
+        ? config.visitedAirports.split(',').map(s => s.trim()).filter(Boolean).sort().join(',')
+        : '',
   };
   return JSON.stringify(normalized);
 };
 
 // Optimization API call
 const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
-  const response = await fetch('/api/optimize', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ config }),
-  });
+  console.log('🌐 Making API call to /api/optimize with config:', config);
+  
+  try {
+    const response = await fetch('/api/optimize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ config }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(errorData.error || `HTTP ${response.status}`);
+    console.log('📡 API response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+      console.error('❌ API error:', errorData);
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ API call successful, result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ fetchOptimization error:', error);
+    throw error;
   }
-
-  return response.json();
 };
 
 export const useOptimization = (config: RouteConfig | null) => {
   const queryClient = useQueryClient();
 
+  // Debug logging
+  console.log('🔍 useOptimization hook called with config:', config);
+  console.log('🔍 Hook enabled:', !!config);
+
   // Query for getting cached optimization results
   const query = useQuery({
     queryKey: queryKeys.optimization(config || {} as RouteConfig),
-    queryFn: () => fetchOptimization(config!),
+    queryFn: () => {
+      console.log('🚀 fetchOptimization called with config:', config);
+      return fetchOptimization(config!);
+    },
     enabled: !!config, // Only run when config is provided
     staleTime: 10 * 60 * 1000, // 10 minutes - optimization results are stable
     gcTime: 60 * 60 * 1000, // 1 hour - keep optimization results longer
@@ -51,11 +72,13 @@ export const useOptimization = (config: RouteConfig | null) => {
   const mutation = useMutation({
     mutationFn: fetchOptimization,
     onSuccess: (data, variables) => {
+      console.log('🎉 Mutation success! Data:', data, 'Variables:', variables);
       // Update the cache with new results
       queryClient.setQueryData(queryKeys.optimization(variables), data);
+      console.log('💾 Cache updated with new results');
     },
     onError: (error) => {
-      console.error('Optimization failed:', error);
+      console.error('❌ Mutation error:', error);
     },
   });
 
@@ -86,7 +109,7 @@ export const useOptimization = (config: RouteConfig | null) => {
     }
   };
 
-  return {
+  const result = {
     // Query results
     data: query.data,
     isLoading: query.isLoading,
@@ -107,4 +130,14 @@ export const useOptimization = (config: RouteConfig | null) => {
     // Status flags
     isFromCache: query.isSuccess && !query.isFetching,
   };
+
+  console.log('📊 useOptimization hook returning:', {
+    data: result.data,
+    isLoading: result.isLoading,
+    error: result.error,
+    isOptimizing: result.isOptimizing,
+    isFromCache: result.isFromCache
+  });
+
+  return result;
 };

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Analytics } from '@vercel/analytics/react';
 import QueryProvider from '../components/QueryProvider';
 import GoogleAnalytics from '../components/GoogleAnalytics';
+import { Toaster } from '../components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -68,6 +69,7 @@ export default function RootLayout({
           <Navigation />
           {children}
           <Analytics />
+          <Toaster />
         </QueryProvider>
       </body>
     </html>
