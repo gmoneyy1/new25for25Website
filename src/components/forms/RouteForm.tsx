@@ -197,7 +197,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                 type="text"
                 value={config.visitedAirports}
                 onChange={(e) => handleInputChange('visitedAirports', e.target.value)}
-                placeholder="e.g., BED, BOS, LAX"
+                placeholder="e.g., JFK, BOS, LAX"
                 className={`w-full px-3 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm ${
                   errors.visitedAirports ? 'border-red-300' : 'border-gray-300'
                 }`}
@@ -208,22 +208,29 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                   {errors.visitedAirports}
                 </p>
               )}
+              <p className="text-xs text-gray-500 mt-2">
+                Optional: Leave empty if you haven't visited any airports yet
+              </p>
             </div>
 
             {/* Domestic Routes Toggle */}
             <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-blue-800 mb-1">
-                  Domestic Routes Only
-                </label>
-                <p className="text-xs text-blue-600 mb-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <label className="block text-sm font-medium text-blue-800">
+                    Domestic Routes Only
+                  </label>
+                  <div className="group relative">
+                    <div className="w-4 h-4 text-blue-600 cursor-help">ⓘ</div>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      International airports (CUN, AMS, LHR, etc.) are automatically added to your "Already Visited" list, so they won't be considered as new destinations. This makes the 25for25 challenge much more manageable!
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600">
                   When enabled, only US domestic flights will be considered for optimization
                 </p>
-                {config.domesticOnly && (
-                  <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded border border-blue-200">
-                    <strong>How it works:</strong> International airports (CUN, AMS, LHR, etc.) are automatically added to your "Already Visited" list, so they won't be considered as new destinations. This makes the 25for25 challenge much more manageable!
-                  </div>
-                )}
               </div>
               <div className="ml-4">
                 <button

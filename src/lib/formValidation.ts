@@ -101,7 +101,7 @@ export const validateRouteConfig = (config: RouteConfig): FormErrors => {
   if (config.visitedAirports && config.visitedAirports.trim() !== '') {
     const airports = config.visitedAirports.split(',').map(a => a.trim()).filter(a => a);
     if (airports.some(a => !/^[A-Z]{3}$/.test(a))) {
-      errors.visitedAirports = 'Airport codes must be 3 letters (e.g., BED, BOS)';
+      errors.visitedAirports = 'Airport codes must be 3 letters (e.g., JFK, BOS)';
     }
   }
 
