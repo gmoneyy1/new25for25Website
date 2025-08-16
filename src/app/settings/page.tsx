@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Database, Zap, Monitor, BarChart3, Trash2, RefreshCw, Cog } from 'lucide-react';
+import { Database, Zap, BarChart3, Trash2, Settings } from 'lucide-react';
 import { CacheManager } from '../../components/CacheManager';
 import { useWorkerOptimization } from '../../hooks/useWorkerOptimization';
+import { getOptimizationConfig, updateActiveConfig, OptimizationConfig } from '../../lib/optimizationConfig';
 
 export default function SettingsPage() {
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [useWebWorker, setUseWebWorker] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [currentOptLevel, setCurrentOptLevel] = useState('moderate');
   
   const {
     isOptimizing: isWorkerOptimizing,
@@ -24,14 +26,31 @@ export default function SettingsPage() {
     if (savedPreference) {
       setUseWebWorker(JSON.parse(savedPreference));
     }
+    // Load optimization level preference
+    const savedOptLevel = localStorage.getItem('jetblue-optimization-level');
+    if (savedOptLevel) {
+      setCurrentOptLevel(savedOptLevel);
+    }
   }, []);
 
-  // Save web worker preference
+  // Save preferences
   useEffect(() => {
     if (isClient) {
       localStorage.setItem('jetblue-use-webworker', JSON.stringify(useWebWorker));
     }
   }, [useWebWorker, isClient]);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem('jetblue-optimization-level', currentOptLevel);
+    }
+  }, [currentOptLevel, isClient]);
+
+  const handleOptimizationLevelChange = (level: string) => {
+    setCurrentOptLevel(level);
+    const config = getOptimizationConfig(level);
+    updateActiveConfig(config);
+  };
 
   const clearAllLocalStorage = () => {
     if (confirm('Are you sure you want to clear all app data? This will remove saved configurations and preferences.')) {
@@ -52,7 +71,7 @@ export default function SettingsPage() {
               Settings
             </h1>
             <p className="text-gray-600 text-base md:text-lg px-4 max-w-2xl">
-              Manage your preferences, cache, and performance settings
+              Manage performance settings and cache data
             </p>
           </div>
         </div>
@@ -117,101 +136,59 @@ export default function SettingsPage() {
               {/* Browser Support Info */}
               {isClient && (
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium text-gray-900 mb-2">Browser Compatibility</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full mr-2 ${supportsWorkers ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span>Web Workers: {supportsWorkers ? 'Supported' : 'Not Supported'}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full mr-2 bg-green-500"></div>
-                      <span>React Query: Supported</span>
-                    </div>
+                  <h3 className="font-medium text-gray-900 mb-2">Browser Support</h3>
+                  <div className="flex items-center text-sm">
+                    <div className={`w-3 h-3 rounded-full mr-2 ${supportsWorkers ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span>Web Workers: {supportsWorkers ? 'Supported' : 'Not Supported'}</span>
                   </div>
+                  {!supportsWorkers && (
+                    <p className="text-xs text-orange-600 mt-2">
+                      Web Workers are not supported in your browser. Optimization will use the main thread.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Optimization Algorithm Settings */}
+          {/* Algorithm Settings */}
           <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
             <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center">
-              <Cog className="mr-3 h-6 w-6 text-purple-500" />
-              Optimization Algorithm
+              <Settings className="mr-3 h-6 w-6 text-purple-500" />
+              Algorithm Settings
             </h2>
             
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">
-                Configure how thoroughly the route optimization algorithm searches for the best routes.
-                Higher settings find better routes but take longer to compute.
-              </p>
-            </div>
-            
-            {/* Optimization Settings Component - Embedded Version */}
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-800">
-                  <strong>Algorithm Performance:</strong> Choose how thoroughly the algorithm searches for optimal routes.
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800 mb-2">
+                  <strong>Optimization Level:</strong> Controls how thoroughly the algorithm searches for routes.
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Higher settings may find better routes but take longer to complete.
+                <p className="text-xs text-blue-600">
+                  Higher levels find better routes but take longer to compute.
                 </p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  {
-                    key: 'conservative',
-                    name: 'Conservative',
-                    description: 'Faster optimization, less thorough search',
-                    maxIterations: 10000,
-                    timeout: '30s'
-                  },
-                  {
-                    key: 'moderate', 
-                    name: 'Moderate (Recommended)',
-                    description: 'Balanced performance and thoroughness',
-                    maxIterations: 25000,
-                    timeout: '60s'
-                  },
-                  {
-                    key: 'aggressive',
-                    name: 'Aggressive',
-                    description: 'More thorough search, slower performance',
-                    maxIterations: 50000,
-                    timeout: '120s'
-                  },
-                  {
-                    key: 'very-aggressive',
-                    name: 'Very Aggressive',
-                    description: 'Most thorough search, slowest performance',
-                    maxIterations: 100000,
-                    timeout: '300s'
-                  }
+                  { key: 'conservative', name: 'Fast', desc: 'Quick results', time: '15s' },
+                  { key: 'moderate', name: 'Balanced', desc: 'Recommended', time: '30s' },
+                  { key: 'aggressive', name: 'Thorough', desc: 'Better routes', time: '60s' },
+                  { key: 'very-aggressive', name: 'Maximum', desc: 'Best possible', time: '120s' }
                 ].map((level) => (
                   <button
                     key={level.key}
-                    onClick={() => {
-                      // Handle optimization level change
-                      console.log('Selected optimization level:', level.key);
-                    }}
-                    className="text-left p-4 border border-gray-200 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    onClick={() => handleOptimizationLevelChange(level.key)}
+                    className={`p-3 border rounded-md text-left transition-colors ${
+                      currentOptLevel === level.key 
+                        ? 'border-blue-500 bg-blue-50 text-blue-800' 
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
                   >
-                    <div className="font-medium text-gray-900 mb-1">{level.name}</div>
-                    <div className="text-sm text-gray-600 mb-2">{level.description}</div>
-                    <div className="text-xs text-gray-500">
-                      <div>Max: {level.maxIterations.toLocaleString()} iterations</div>
-                      <div>Timeout: {level.timeout}</div>
-                    </div>
+                    <div className="font-medium">{level.name}</div>
+                    <div className="text-sm text-gray-600">{level.desc}</div>
+                    <div className="text-xs text-gray-500">~{level.time} max</div>
                   </button>
                 ))}
-              </div>
-              
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-xs text-yellow-800">
-                  <strong>Note:</strong> These settings affect both client-side and server-side optimization. 
-                  Changes take effect immediately for new optimizations.
-                </p>
               </div>
             </div>
           </div>
@@ -254,50 +231,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* App Information */}
-          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center">
-              <Monitor className="mr-3 h-6 w-6 text-gray-500" />
-              App Information
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Version</h3>
-                <p className="text-sm text-gray-600">JetBlue 25for25 Route Optimizer v1.0</p>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Technology Stack</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Next.js 14 with App Router</li>
-                  <li>• React 18 with TypeScript</li>
-                  <li>• Tailwind CSS for styling</li>
-                  <li>• React Query for caching</li>
-                </ul>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Features</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• A* route optimization algorithm</li>
-                  <li>• Real-time flight pricing</li>
-                  <li>• Intelligent caching system</li>
-                  <li>• Mobile-responsive design</li>
-                </ul>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium text-gray-900 mb-2">Data Sources</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• JetBlue flight schedules</li>
-                  <li>• Multiple pricing APIs</li>
-                  <li>• Realistic fallback pricing</li>
-                  <li>• Airport distance calculations</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Navigation Links */}

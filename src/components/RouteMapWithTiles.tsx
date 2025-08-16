@@ -206,53 +206,45 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
         const script = document.createElement('script');
         
         try {
-          // First try environment variable, then fallback to API endpoint
-          let apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-          
-          if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-            console.log('🔄 Fetching API key from server...');
-            const response = await fetch('/api/config');
-            const config = await response.json();
-            
-            console.log('🔍 Server response:', {
-              status: response.status,
-              hasKey: config.hasKey,
-              error: config.error,
-              debug: config.debug
-            });
-            
-            if (config.hasKey && config.googleMapsApiKey) {
-              apiKey = config.googleMapsApiKey;
-              console.log('✅ API key fetched from server successfully');
-            } else {
-              throw new Error(`Server API key fetch failed: ${config.error || 'Unknown error'}`);
-            }
-          }
-          
-          // Enhanced debugging for production
-          console.log('API Key check:', {
-            source: apiKey === process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? 'environment' : 'server',
-            hasApiKey: !!apiKey,
-            apiKeyLength: apiKey?.length || 0,
-            apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND'
+          // Use secure proxy endpoint instead of exposing API key
+          console.log('🔄 Fetching secure maps configuration from server...');
+          const response = await fetch('/api/maps-proxy', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'loadScript'
+            })
           });
           
-          if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-            throw new Error('Google Maps API key is missing or invalid');
+          const config = await response.json();
+          
+          console.log('🔍 Server response:', {
+            status: response.status,
+            hasKey: config.hasKey,
+            error: config.error
+          });
+          
+          if (config.hasKey && config.scriptUrl) {
+            console.log('✅ Secure script URL received from server');
+            
+            // Use the secure script URL from the server
+            script.src = config.scriptUrl;
+            script.async = true;
+            script.defer = true;
+          } else {
+            throw new Error(`Server maps proxy failed: ${config.error || 'Unknown error'}`);
           }
-
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
-          script.async = true;
-          script.defer = true;
-        
+          
         } catch (error) {
-          console.error('❌ Failed to load Google Maps API key:', error);
+          console.error('❌ Failed to get secure maps configuration:', error);
           if (mapRef.current) {
             mapRef.current.innerHTML = `
               <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
-                <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps API Key Required</h3>
-                <p style="margin-bottom: 10px;">Failed to load Google Maps API key.</p>
-                <p style="font-size: 12px; color: #999;">Check your Vercel environment variables: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
+                <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Configuration Error</h3>
+                <p style="margin-bottom: 10px;">Failed to load secure maps configuration.</p>
+                <p style="font-size: 12px; color: #999;">Check your server environment variables: GOOGLE_MAPS_API_KEY</p>
                 <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
               </div>
             `;
@@ -274,7 +266,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           console.error('Failed to load Google Maps API. Please check your API key and network connection.');
           // Fallback to a simple message
           if (mapRef.current) {
-            mapRef.current.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666;">Google Maps API key required. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file.</div>';
+            mapRef.current.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666;">Google Maps configuration error. Please check server environment variables.</div>';
           }
         };
         document.head.appendChild(script);
