@@ -55,8 +55,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the Google Maps API key from server environment
+    // Support both new (secure) and old (legacy) environment variable names
     const googleMapsApiKey = 
       process.env.GOOGLE_MAPS_API_KEY || 
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || // Legacy support for local development
       process.env.REACT_APP_GOOGLE_MAPS_API_KEY ||
       process.env.GOOGLE_MAPS_API;
 
