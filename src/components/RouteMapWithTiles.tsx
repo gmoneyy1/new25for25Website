@@ -225,12 +225,13 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
             const config = await response.json();
             
             if (config.hasKey && config.scriptUrl) {
-              console.log('✅ Using secure proxy script URL');
+              console.log('✅ Using secure proxy script URL:', config.scriptUrl);
               script.src = config.scriptUrl;
               script.async = true;
               script.defer = true;
             } else {
-              throw new Error(`Proxy failed: ${config.error || 'Unknown error'}`);
+              console.error('❌ Proxy response invalid:', config);
+              throw new Error(`Proxy failed: ${config.error || 'Invalid response'}`);
             }
           } catch (error) {
             console.error('❌ Both direct access and proxy failed:', error);
@@ -254,15 +255,34 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
           script.defer = true;
         }
         
-        // Set up global callback
+        // Set up global callback with better error handling
         (window as any).initGoogleMaps = () => {
-          console.log('Google Maps API loaded successfully');
+          console.log('🎉 Google Maps API loaded successfully via callback');
           // Wait a bit longer for marker library to be fully available
           setTimeout(() => {
-            console.log('Initializing map after marker library load...');
+            console.log('🗺️ Initializing map after marker library load...');
             initMap();
           }, 200);
         };
+        
+        // Fallback: If callback doesn't fire within 10 seconds, try direct initialization
+        setTimeout(() => {
+          if (!window.google) {
+            console.warn('⚠️ Google Maps callback did not fire within 10 seconds');
+            if (mapRef.current) {
+              mapRef.current.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
+                  <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Loading Timeout</h3>
+                  <p style="margin-bottom: 10px;">The maps script loaded but didn't initialize properly.</p>
+                  <p style="font-size: 12px; color: #999;">Try refreshing the page</p>
+                </div>
+              `;
+            }
+          } else if (!mapInstanceRef.current) {
+            console.log('🔄 Google Maps loaded but map not initialized, trying direct init...');
+            initMap();
+          }
+        }, 10000);
         
         script.onerror = () => {
           console.error('Failed to load Google Maps API. Please check your API key and network connection.');
