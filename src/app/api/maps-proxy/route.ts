@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       case 'loadScript':
         // Return a secure script URL that the client can load
         return NextResponse.json({
-          scriptUrl: `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=geometry&loading=async`,
+          scriptUrl: `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`,
           hasKey: true
         }, {
           headers: {
