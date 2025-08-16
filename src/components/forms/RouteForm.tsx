@@ -20,7 +20,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   hasData,
   errors = {}
 }) => {
-  const handleInputChange = (field: keyof RouteConfig, value: string | number) => {
+  const handleInputChange = (field: keyof RouteConfig, value: string | number | boolean) => {
     onConfigChange({ ...config, [field]: value });
   };
 
@@ -208,6 +208,38 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                   {errors.visitedAirports}
                 </p>
               )}
+            </div>
+
+            {/* Domestic Routes Toggle */}
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-blue-800 mb-1">
+                  Domestic Routes Only
+                </label>
+                <p className="text-xs text-blue-600 mb-2">
+                  When enabled, only US domestic flights will be considered for optimization
+                </p>
+                {config.domesticOnly && (
+                  <div className="text-xs text-blue-700 bg-blue-100 p-2 rounded border border-blue-200">
+                    <strong>How it works:</strong> International airports (CUN, AMS, LHR, etc.) are automatically added to your "Already Visited" list, so they won't be considered as new destinations. This makes the 25for25 challenge much more manageable!
+                  </div>
+                )}
+              </div>
+              <div className="ml-4">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('domesticOnly', !config.domesticOnly)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    config.domesticOnly ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      config.domesticOnly ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -18,6 +18,7 @@ export interface RouteConfig {
   endAirports: string;
   visitedAirports: string;
   minConnectionTime: number;
+  domesticOnly: boolean;
 }
 
 export interface SearchState {

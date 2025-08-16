@@ -44,7 +44,8 @@ const JetBlueOptimizer = () => {
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',
     visitedAirports: 'BED',
-    minConnectionTime: 60
+    minConnectionTime: 60,
+    domesticOnly: false
   });
 
   // Use cached optimization hook
@@ -103,23 +104,41 @@ const JetBlueOptimizer = () => {
       return;
     }
 
-    console.log('🚀 Starting optimization for config:', config);
+    // Handle domestic-only logic
+    let optimizationConfig = { ...config };
+    if (config.domesticOnly) {
+      // List of international airports to exclude
+      const internationalAirports = [
+        'AMS', 'CDG', 'LHR', 'LGW', 'DUB', 'EDI', 'MAD', 'LIR', 'SJD', 'SJO',
+        'GUA', 'SAP', 'MDE', 'CTG', 'GEO', 'GYE', 'BZE', 'CUR', 'GND', 'ANU',
+        'BGI', 'KIN', 'MBJ', 'POP', 'POS', 'SKB', 'BON', 'GCM', 'PLS', 'CUN'
+      ];
+      
+      // Add international airports to visited airports (hidden from UI)
+      const currentVisited = config.visitedAirports ? config.visitedAirports.split(',').map(a => a.trim()) : [];
+      const allInternational = Array.from(new Set([...currentVisited, ...internationalAirports]));
+      optimizationConfig.visitedAirports = allInternational.join(',');
+      
+      console.log('🌍 Domestic-only mode: Excluding international airports:', internationalAirports);
+    }
+
+    console.log('🚀 Starting optimization for config:', optimizationConfig);
     
     if (useWebWorker && supportsWorkers && flights.length > 0) {
       console.log('Using web worker optimization');
       try {
-        const result = await workerOptimize(flights, config);
+        const result = await workerOptimize(flights, optimizationConfig);
         // Manually update cache and UI state
         // We'll need to update the hook to handle worker results
         console.log('Worker result:', result);
       } catch (error) {
         console.error('Worker optimization failed:', error);
         // Fallback to regular optimization
-        setCurrentConfig(config);
+        setCurrentConfig(optimizationConfig);
       }
     } else {
       // Use regular optimization
-      setCurrentConfig(config);
+      setCurrentConfig(optimizationConfig);
     }
   }, [config, useWebWorker, supportsWorkers, flights, workerOptimize]);
 
@@ -172,6 +191,18 @@ const JetBlueOptimizer = () => {
             <p className="text-gray-600 text-base md:text-lg px-4 max-w-2xl">
               Find the optimal flight path to visit the most new airports efficiently
             </p>
+            
+            {/* Domestic Mode Indicator */}
+            {config.domesticOnly && (
+              <div className="mt-3 px-4 py-2 bg-green-100 border border-green-300 rounded-lg inline-flex items-center">
+                <span className="text-green-800 text-sm font-medium">
+                  🇺🇸 Domestic Routes Only
+                </span>
+                <span className="text-green-600 text-xs ml-2">
+                  International airports automatically excluded
+                </span>
+              </div>
+            )}
             
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap justify-center gap-3 mt-4">
