@@ -1,14 +1,14 @@
 import { PricingSearchRequest, PricingSearchResponse, FlightPricing, Flight } from './types';
 import * as cheerio from 'cheerio';
 
-// API Configuration
-const AMADEUS_API_KEY = process.env.NEXT_PUBLIC_AMADEUS_API_KEY;
-const AMADEUS_API_SECRET = process.env.NEXT_PUBLIC_AMADEUS_API_SECRET;
+// API Configuration - Server-side only
+const AMADEUS_API_KEY = process.env.AMADEUS_API_KEY;
+const AMADEUS_API_SECRET = process.env.AMADEUS_API_SECRET;
 const AMADEUS_BASE_URL = 'https://test.api.amadeus.com/v2';
 
-// Alternative APIs (fallback options)
-const SKYSCANNER_API_KEY = process.env.NEXT_PUBLIC_SKYSCANNER_API_KEY;
-const GOOGLE_FLIGHTS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_FLIGHTS_API_KEY;
+// Alternative APIs (fallback options) - Server-side only
+const SKYSCANNER_API_KEY = process.env.SKYSCANNER_API_KEY;
+const GOOGLE_FLIGHTS_API_KEY = process.env.GOOGLE_FLIGHTS_API_KEY;
 
 /**
  * Generate multiple pricing options for comparison using realistic pricing
