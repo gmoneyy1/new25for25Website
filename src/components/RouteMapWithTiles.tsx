@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Flight } from '../lib/types';
 import { Plane, MapPin } from 'lucide-react';
 
@@ -344,7 +344,7 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
     };
 
     initializeMap();
-  }, [isClient, bounds, flights]);
+  }, [isClient, bounds, flights]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addFlightOverlays = (map: google.maps.Map) => {
     if (!window.google || !window.google.maps) {

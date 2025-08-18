@@ -3,9 +3,9 @@ import React from 'react';
 const AboutPage = () => (
   <section className="py-12">
     <div className="text-center mb-8">
-      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">JetBlue's 25th Anniversary Challenge</h2>
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">JetBlue&apos;s 25th Anniversary Challenge</h2>
       <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-        Celebrate JetBlue's 25th anniversary by visiting unique destinations. The more you explore, the more you earn.
+        Celebrate JetBlue&apos;s 25th anniversary by visiting unique destinations. The more you explore, the more you earn.
       </p>
     </div>
     <div className="flex flex-col md:flex-row justify-center gap-6 mb-10">
@@ -46,7 +46,7 @@ const AboutPage = () => (
           </span>
           <div>
             <span className="font-semibold">JetBlue-Operated Only</span>
-            <div className="text-gray-600 text-sm">Codeshare flights and Blue Basic fares don't qualify</div>
+            <div className="text-gray-600 text-sm">Codeshare flights and Blue Basic fares don&apos;t qualify</div>
           </div>
         </div>
         <div className="flex items-start gap-3">

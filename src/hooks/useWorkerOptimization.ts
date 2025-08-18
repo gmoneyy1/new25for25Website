@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RouteConfig, Results, Flight } from '../lib/types';
+import { ACTIVE_CONFIG } from '../lib/optimizationConfig';
 
 interface OptimizationProgress {
   iterations: number;
@@ -102,11 +103,12 @@ export const useWorkerOptimization = (): UseWorkerOptimizationReturn => {
             cleanup();
           };
 
-          // Start optimization
+          // Start optimization with current optimization configuration
           workerRef.current.postMessage({
             type: 'optimize',
             flights,
             config,
+            optimizationConfig: ACTIVE_CONFIG,
             id: optimizationId
           });
 

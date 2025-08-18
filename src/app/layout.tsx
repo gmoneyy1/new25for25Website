@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import Link from 'next/link';
+import Script from 'next/script';
 import { Analytics } from '@vercel/analytics/react';
 import QueryProvider from '../components/QueryProvider';
-import GoogleAnalytics from '../components/GoogleAnalytics';
 import { Toaster } from '../components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -55,16 +55,27 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-
   return (
     <html lang='en'>
       <head>
         <link rel="icon" href="/favicon.ico?v=3" />
         <link rel="shortcut icon" href="/favicon.ico?v=3" />
-        {googleAnalyticsId && <GoogleAnalytics measurementId={googleAnalyticsId} />}
       </head>
       <body className={inter.className}>
+        {/* Google Analytics - Simple gtag approach */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-J9NJT60HYC"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-J9NJT60HYC');
+          `}
+        </Script>
+
         <QueryProvider>
           <Navigation />
           {children}

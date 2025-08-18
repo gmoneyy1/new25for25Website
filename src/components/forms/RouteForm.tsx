@@ -227,7 +227,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                 </p>
               )}
               <p className="text-xs text-gray-500 mt-2">
-                Optional: Leave empty if you haven't visited any airports yet
+                Optional: Leave empty if you haven&apos;t visited any airports yet
               </p>
             </div>
 

@@ -176,8 +176,13 @@ class PriorityQueue {
 }
 
 // A* optimization algorithm
-function optimizeRouteWorker(flights, config) {
+function optimizeRouteWorker(flights, config, optimizationConfig = {}) {
   const { startAirports, endAirports, visitedAirports, minConnectionTime, startDate, startTime, endDate, endTime } = config;
+  
+  // Use provided optimization configuration or defaults
+  const MAX_ITERATIONS = optimizationConfig.maxIterations || 50000;
+  const TIMEOUT_MS = optimizationConfig.timeoutMs || 60000;
+  const MAX_HEAP_SIZE = optimizationConfig.maxHeapSize || 3000;
   
   // Parse configuration
   const startAirportList = startAirports.split(',').map(a => a.trim());
@@ -207,7 +212,6 @@ function optimizeRouteWorker(flights, config) {
   const openSet = new PriorityQueue();
   const closedSet = new Set();
   let iterations = 0;
-  const MAX_ITERATIONS = 50000;
   
   // Initialize with starting airports
   startAirportList.forEach(airport => {
@@ -229,9 +233,16 @@ function optimizeRouteWorker(flights, config) {
   
   let bestSolution = null;
   let bestScore = -1;
+  const startTime = Date.now();
   
   while (!openSet.isEmpty() && iterations < MAX_ITERATIONS) {
     iterations++;
+    
+    // Check timeout
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      console.warn(`Worker optimization timeout after ${iterations} iterations`);
+      break;
+    }
     
     // Report progress every 1000 iterations
     if (iterations % 1000 === 0) {
@@ -299,15 +310,18 @@ function optimizeRouteWorker(flights, config) {
         newDuration
       );
       
-      openSet.enqueue({
-        path: newPath,
-        visitedAirports: newVisitedAirports,
-        currentAirport: flight.Destination,
-        totalDistance: newDistance,
-        totalDuration: newDuration,
-        arrivalTime: arrivalTime,
-        score: score
-      }, -score); // Negative because PriorityQueue is min-heap
+      // Only add to queue if under heap size limit
+      if (openSet.size() < MAX_HEAP_SIZE) {
+        openSet.enqueue({
+          path: newPath,
+          visitedAirports: newVisitedAirports,
+          currentAirport: flight.Destination,
+          totalDistance: newDistance,
+          totalDuration: newDuration,
+          arrivalTime: arrivalTime,
+          score: score
+        }, -score); // Negative because PriorityQueue is min-heap
+      }
     });
   }
   
@@ -335,11 +349,11 @@ function calculateScore(numFlights, newAirports, totalDistance, totalDuration) {
 
 // Worker message handler
 self.onmessage = function(e) {
-  const { type, flights, config, id } = e.data;
+  const { type, flights, config, optimizationConfig, id } = e.data;
   
   if (type === 'optimize') {
     try {
-      const result = optimizeRouteWorker(flights, config);
+      const result = optimizeRouteWorker(flights, config, optimizationConfig);
       
       self.postMessage({
         type: 'result',
