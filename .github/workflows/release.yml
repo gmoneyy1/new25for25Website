@@ -1,0 +1,80 @@
+name: Release Validation
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run full validation suite
+      run: |
+        echo "🚀 Running release validation..."
+        
+        # Linting
+        echo "📋 Running linter..."
+        npm run lint
+        
+        # Type checking
+        echo "🔍 Type checking..."
+        npx tsc --noEmit
+        
+        # Security audit
+        echo "🔒 Security audit..."
+        npm audit --audit-level=moderate
+        
+        # Build test
+        echo "🏗️ Testing production build..."
+        npm run build
+        
+        echo "✅ Release validation completed successfully!"
+        
+    - name: Validate environment variable documentation
+      run: |
+        echo "📚 Validating environment variable documentation..."
+        
+        # Check that SECURITY.md exists and is up to date
+        if [ ! -f "SECURITY.md" ]; then
+          echo "❌ SECURITY.md file missing!"
+          exit 1
+        fi
+        
+        # Check for key security topics
+        required_topics=("API Key Security" "Environment Variables" "Domain Restrictions")
+        for topic in "${required_topics[@]}"; do
+          if ! grep -q "$topic" SECURITY.md; then
+            echo "❌ Missing required security topic: $topic"
+            exit 1
+          fi
+        done
+        
+        echo "✅ Security documentation validated!"
+        
+    - name: Create release summary
+      run: |
+        echo "## 🎉 Release Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Linting**: Passed" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Type Checking**: Passed" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Security Audit**: Passed" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Production Build**: Successful" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **Security Documentation**: Up to date" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 Ready for production deployment!"

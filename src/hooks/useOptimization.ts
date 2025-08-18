@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RouteConfig, Results } from '../lib/types';
 import { queryKeys } from '../lib/queryClient';
+import { optimizeRoute as apiOptimizeRoute, getErrorMessage } from '../lib/apiService';
 
 // Create a hash from the route config for consistent caching
 const createConfigHash = (config: RouteConfig): string => {
@@ -15,51 +16,47 @@ const createConfigHash = (config: RouteConfig): string => {
   return JSON.stringify(normalized);
 };
 
-// Optimization API call
+// Optimization API call using the new apiService
 const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
-  console.log('🌐 Making API call to /api/optimize with config:', config);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🌐 Making API call to /api/optimize with config:', config);
+  }
   
   try {
-    const response = await fetch('/api/optimize', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ config }),
-    });
-
-    // Only log API details in development to prevent production data exposure
+    const result = await apiOptimizeRoute(config);
+    
     if (process.env.NODE_ENV === 'development') {
-      console.log('📡 API response status:', response.status);
+      console.log('✅ API call successful, result:', result);
     }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-      console.error('❌ API error:', errorData);
-      throw new Error(errorData.error || `HTTP ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ API call successful, result:', result);
+    
     return result;
   } catch (error) {
-    console.error('❌ fetchOptimization error:', error);
-    throw error;
+    // Log technical details in development only
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ fetchOptimization error:', error);
+    }
+    
+    // Re-throw with user-friendly message - the hook will handle displaying it
+    throw new Error(getErrorMessage(error));
   }
 };
 
 export const useOptimization = (config: RouteConfig | null) => {
   const queryClient = useQueryClient();
 
-  // Debug logging
-  console.log('🔍 useOptimization hook called with config:', config);
-  console.log('🔍 Hook enabled:', !!config);
+  // Debug logging (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 useOptimization hook called with config:', config);
+    console.log('🔍 Hook enabled:', !!config);
+  }
 
   // Query for getting cached optimization results
   const query = useQuery({
     queryKey: queryKeys.optimization(config || {} as RouteConfig),
     queryFn: () => {
-      console.log('🚀 fetchOptimization called with config:', config);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 fetchOptimization called with config:', config);
+      }
       return fetchOptimization(config!);
     },
     enabled: !!config, // Only run when config is provided
@@ -75,13 +72,21 @@ export const useOptimization = (config: RouteConfig | null) => {
   const mutation = useMutation({
     mutationFn: fetchOptimization,
     onSuccess: (data, variables) => {
-      console.log('🎉 Mutation success! Data:', data, 'Variables:', variables);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎉 Mutation success! Data:', data, 'Variables:', variables);
+      }
       // Update the cache with new results
       queryClient.setQueryData(queryKeys.optimization(variables), data);
-      console.log('💾 Cache updated with new results');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('💾 Cache updated with new results');
+      }
     },
     onError: (error) => {
-      console.error('❌ Mutation error:', error);
+      // Only log technical details in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Mutation error:', error);
+      }
+      // Error will already have user-friendly message from fetchOptimization
     },
   });
 
@@ -134,13 +139,15 @@ export const useOptimization = (config: RouteConfig | null) => {
     isFromCache: query.isSuccess && !query.isFetching,
   };
 
-  console.log('📊 useOptimization hook returning:', {
-    data: result.data,
-    isLoading: result.isLoading,
-    error: result.error,
-    isOptimizing: result.isOptimizing,
-    isFromCache: result.isFromCache
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📊 useOptimization hook returning:', {
+      data: result.data,
+      isLoading: result.isLoading,
+      error: result.error,
+      isOptimizing: result.isOptimizing,
+      isFromCache: result.isFromCache
+    });
+  }
 
   return result;
 };

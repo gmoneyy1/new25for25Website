@@ -13,6 +13,8 @@ import { useOptimization } from '../hooks/useOptimization';
 import { useWorkerOptimization } from '../hooks/useWorkerOptimization';
 import { parseCsvText } from '../lib/server/csvParser';
 import { validateRouteConfig, FormErrors } from '../lib/formValidation';
+import { getScheduleData, getErrorMessage } from '../lib/apiService';
+import { getOptimizationConfig, updateActiveConfig } from '../lib/optimizationConfig';
 
 const NAV_ITEMS = [
   { label: 'About', href: '#about' },
@@ -23,7 +25,6 @@ const NAV_ITEMS = [
 
 const JetBlueOptimizer = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [useWebWorker, setUseWebWorker] = useState(false);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [showSavedConfigs, setShowSavedConfigs] = useState(false);
@@ -67,25 +68,35 @@ const JetBlueOptimizer = () => {
 
   useEffect(() => {
     setIsClient(true);
-    // Load web worker preference from localStorage
-    const savedPreference = localStorage.getItem('jetblue-use-webworker');
-    if (savedPreference) {
-      setUseWebWorker(JSON.parse(savedPreference));
+    
+    // Load optimization level preference from localStorage
+    const savedOptLevel = localStorage.getItem('jetblue-optimization-level');
+    if (savedOptLevel) {
+      const config = getOptimizationConfig(savedOptLevel);
+      updateActiveConfig(config);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔧 Loaded optimization level: ${savedOptLevel}`, config);
+      }
     }
   }, []);
 
   // Load flight data on mount for web worker
   useEffect(() => {
     if (supportsWorkers) {
-      fetch('/api/schedule')
-        .then(response => response.text())
-        .then(csvData => {
+      const loadFlightData = async () => {
+        try {
+          const csvData = await getScheduleData();
           const parsedFlights = parseCsvText(csvData);
           setFlights(parsedFlights);
-        })
-        .catch(error => {
-          console.warn('Failed to load flights for web worker:', error);
-        });
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Failed to load flights for web worker:', error);
+          }
+          // Could add user notification here if needed
+        }
+      };
+      
+      loadFlightData();
     }
   }, [supportsWorkers]);
 
@@ -165,7 +176,7 @@ const JetBlueOptimizer = () => {
 
     console.log('🚀 Starting optimization for config:', optimizationConfig);
     
-    if (useWebWorker && supportsWorkers && flights.length > 0) {
+    if (supportsWorkers && flights.length > 0) {
       console.log('🔄 Using web worker optimization');
       try {
         const result = await workerOptimize(flights, optimizationConfig);
@@ -184,11 +195,12 @@ const JetBlueOptimizer = () => {
       console.log('📊 Setting currentConfig to:', optimizationConfig);
       setCurrentConfig(optimizationConfig);
     }
-  }, [config, useWebWorker, supportsWorkers, flights, workerOptimize]);
+  }, [config, supportsWorkers, flights, workerOptimize]);
 
   const handleDownload = useCallback(() => {
     console.log('Download completed');
   }, []);
+
 
   const handleOptimizeAgain = useCallback(() => {
     // Clear cache for this config and re-optimize
@@ -276,10 +288,10 @@ const JetBlueOptimizer = () => {
                     ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
-                title="Saved Configurations"
+                title="View saved configurations"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {showSavedConfigs ? 'Hide Saved' : 'Quick Save'}
+                {showSavedConfigs ? 'Hide Saved' : 'Saved Routes'}
               </button>
             </div>
             

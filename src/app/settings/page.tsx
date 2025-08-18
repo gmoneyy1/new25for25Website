@@ -8,7 +8,6 @@ import { getOptimizationConfig, updateActiveConfig, OptimizationConfig } from '.
 
 export default function SettingsPage() {
   const [showCacheManager, setShowCacheManager] = useState(false);
-  const [useWebWorker, setUseWebWorker] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [currentOptLevel, setCurrentOptLevel] = useState('moderate');
   
@@ -21,11 +20,6 @@ export default function SettingsPage() {
   // SSR-friendly state
   useEffect(() => {
     setIsClient(true);
-    // Load web worker preference from localStorage
-    const savedPreference = localStorage.getItem('jetblue-use-webworker');
-    if (savedPreference) {
-      setUseWebWorker(JSON.parse(savedPreference));
-    }
     // Load optimization level preference
     const savedOptLevel = localStorage.getItem('jetblue-optimization-level');
     if (savedOptLevel) {
@@ -33,12 +27,6 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // Save preferences
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('jetblue-use-webworker', JSON.stringify(useWebWorker));
-    }
-  }, [useWebWorker, isClient]);
 
   useEffect(() => {
     if (isClient) {
@@ -87,28 +75,6 @@ export default function SettingsPage() {
             </h2>
             
             <div className="space-y-4">
-              {/* Web Worker Setting */}
-              {isClient && supportsWorkers && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="mb-3 sm:mb-0">
-                    <h3 className="font-medium text-gray-900">Web Worker Optimization</h3>
-                    <p className="text-sm text-gray-600">
-                      Use background processing to prevent UI freezing during route optimization
-                    </p>
-                  </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={useWebWorker}
-                      onChange={(e) => setUseWebWorker(e.target.checked)}
-                      className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium">
-                      {useWebWorker ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </label>
-                </div>
-              )}
 
               {/* Web Worker Progress */}
               {isClient && supportsWorkers && isWorkerOptimizing && workerProgress && (
@@ -136,14 +102,18 @@ export default function SettingsPage() {
               {/* Browser Support Info */}
               {isClient && (
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium text-gray-900 mb-2">Browser Support</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">Background Processing</h3>
                   <div className="flex items-center text-sm">
-                    <div className={`w-3 h-3 rounded-full mr-2 ${supportsWorkers ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Web Workers: {supportsWorkers ? 'Supported' : 'Not Supported'}</span>
+                    <div className={`w-3 h-3 rounded-full mr-2 ${supportsWorkers ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                    <span>
+                      {supportsWorkers 
+                        ? 'Enabled - Optimization runs in background without freezing UI' 
+                        : 'Unavailable - Optimization will use main thread'}
+                    </span>
                   </div>
                   {!supportsWorkers && (
                     <p className="text-xs text-orange-600 mt-2">
-                      Web Workers are not supported in your browser. Optimization will use the main thread.
+                      Your browser doesn&apos;t support Web Workers. The UI may freeze briefly during optimization.
                     </p>
                   )}
                 </div>
