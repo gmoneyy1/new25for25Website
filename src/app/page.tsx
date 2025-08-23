@@ -15,6 +15,7 @@ import { parseCsvText } from '../lib/server/csvParser';
 import { validateRouteConfig, FormErrors } from '../lib/formValidation';
 import { getScheduleData, getErrorMessage } from '../lib/apiService';
 import { getOptimizationConfig, updateActiveConfig } from '../lib/optimizationConfig';
+import { DonationWidget } from '../components/DonationWidget';
 
 const NAV_ITEMS = [
   { label: 'About', href: '#about' },
@@ -369,6 +370,11 @@ const JetBlueOptimizer = () => {
                 config={config}
                 onConfigChange={setConfig}
               />
+            </ErrorBoundary>
+            
+            {/* Donation Widget */}
+            <ErrorBoundary>
+              <DonationWidget variant="compact" />
             </ErrorBoundary>
 
           </div>

@@ -218,6 +218,14 @@ export {
 // Textarea
 export { Textarea } from "./textarea";
 
+// Toast
+export { Toaster } from "./toaster";
+export { useToast } from "./use-toast";
+export { toast } from "./use-toast";
+export type { ToastProps } from "./toast";
+export type { ToastActionElement } from "./toast";
+export type { ToasterToast } from "./use-toast";
+
 // Toggle
 export { Toggle } from "./toggle";
 
