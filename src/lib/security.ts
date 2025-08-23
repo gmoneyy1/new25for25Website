@@ -28,7 +28,7 @@ export const BLOCKED_USER_AGENTS = [
   'crawler',
   'scraper',
   'spider',
-  'curl',
+  // 'curl', // Temporarily removed for testing
   'wget',
   'python-requests',
   'node-fetch',

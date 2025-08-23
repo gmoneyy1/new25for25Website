@@ -205,6 +205,16 @@ export const RouteForm: React.FC<RouteFormProps> = ({
                   Enter 3-letter airport codes separated by commas
                 </p>
               )}
+              
+              {/* Helpful message for large airport sets */}
+              {config.endAirports && config.endAirports.split(',').length > 30 && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-xs text-green-800">
+                    <strong>Auto-optimized:</strong> You've entered {config.endAirports.split(',').length} end airports. 
+                    The system will automatically use optimized settings for large airport sets to find better routes.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

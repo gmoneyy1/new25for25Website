@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { label: 'About', href: '/about' },
   { label: 'Settings', href: '/settings' },
   { label: 'Contact Us', href: '/contact' },
+  { label: 'Donate', href: '/donate' },
 ];
 
 function Navigation() {

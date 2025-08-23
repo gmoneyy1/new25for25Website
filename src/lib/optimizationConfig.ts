@@ -37,12 +37,19 @@ export const VERY_AGGRESSIVE_CONFIG: OptimizationConfig = {
   timeoutMs: 120000      // 2 minute timeout
 };
 
+// Large airport set configuration (for when users input many end airports)
+export const LARGE_AIRPORT_CONFIG: OptimizationConfig = {
+  maxIterations: 150000, // 150k iterations
+  maxHeapSize: 15000,    // 15k heap size
+  timeoutMs: 180000      // 3 minute timeout
+};
+
 // Current active configuration
 export const ACTIVE_CONFIG: OptimizationConfig = MODERATE_CONFIG;
 
 /**
  * Get optimization configuration
- * @param level - Configuration level ('conservative', 'moderate', 'aggressive', 'very-aggressive')
+ * @param level - Configuration level ('conservative', 'moderate', 'aggressive', 'very-aggressive', 'large-airport')
  * @returns Optimization configuration object
  */
 export const getOptimizationConfig = (level: string = 'moderate'): OptimizationConfig => {
@@ -53,6 +60,8 @@ export const getOptimizationConfig = (level: string = 'moderate'): OptimizationC
       return AGGRESSIVE_CONFIG;
     case 'very-aggressive':
       return VERY_AGGRESSIVE_CONFIG;
+    case 'large-airport':
+      return LARGE_AIRPORT_CONFIG;
     case 'moderate':
     default:
       return MODERATE_CONFIG;

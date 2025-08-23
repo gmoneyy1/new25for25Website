@@ -1,5 +1,11 @@
 import { Flight, RouteConfig, OptimizationResults, OptimizationError, SearchState } from '../types';
-import { ACTIVE_CONFIG } from '../optimizationConfig';
+import { ACTIVE_CONFIG, LARGE_AIRPORT_CONFIG, OptimizationConfig } from '../optimizationConfig';
+
+// Debug imports
+console.log('🔍 Import debug:');
+console.log(`ACTIVE_CONFIG.maxIterations: ${ACTIVE_CONFIG.maxIterations}`);
+console.log(`LARGE_AIRPORT_CONFIG.maxIterations: ${LARGE_AIRPORT_CONFIG.maxIterations}`);
+console.log(`ACTIVE_CONFIG === LARGE_AIRPORT_CONFIG: ${ACTIVE_CONFIG === LARGE_AIRPORT_CONFIG}`);
 
 /**
  * Calculate heuristic value for A* search with multi-objective optimization
@@ -155,57 +161,105 @@ const calculatePathMetrics = (path: Flight[]) => {
 };
 
 /**
- * Calculate multi-objective score for route optimization
+ * Calculate multi-objective score for route evaluation
  * @param visitedCount - Number of unique airports visited
  * @param totalDuration - Total duration in minutes
- * @param maxPossibleAirports - Maximum possible airports that can be visited
- * @returns Multi-objective score (lower is better)
+ * @param totalPossible - Total possible new airports
+ * @returns Score (higher is better)
  */
-const calculateMultiObjectiveScore = (
-  visitedCount: number, 
-  totalDuration: number, 
-  maxPossibleAirports: number
-): number => {
-  // Primary objective: maximize unique airports (negative for minimization in A*)
-  const airportScore = -(visitedCount * 10000);
+const calculateMultiObjectiveScore = (visitedCount: number, totalDuration: number, totalPossible: number): number => {
+  // Normalize visited count to 0-1 range
+  const normalizedVisited = visitedCount / Math.max(totalPossible, 1);
+  // Normalize duration (assume max 24 hours = 1440 minutes)
+  const normalizedDuration = Math.min(totalDuration / 1440, 1);
   
-  // Secondary objective: minimize duration (normalized to 0-1000 range)
-  const normalizedDuration = Math.min(totalDuration / 1440, 1) * 1000; // Normalize by 24 hours
-  
-  return airportScore + normalizedDuration;
+  // Weight unique airports much higher than duration
+  return (normalizedVisited * 1000) - (normalizedDuration * 10);
 };
 
 // Configuration for optimization algorithm
 const OPTIMIZATION_CONFIG = ACTIVE_CONFIG;
 
 /**
- * Optimize route using A* search algorithm
+ * Optimize route with A* search algorithm
  * @param flights - Array of all flights
  * @param config - Route configuration
- * @returns Promise with optimization results or error
+ * @returns Optimization results or error
  */
 export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Promise<OptimizationResults | OptimizationError> => {
   const startTime = Date.now();
   
+  console.log('🚨 OPTIMIZATION ENGINE CALLED - NEW VERSION! 🚨');
+  
   try {
-    const { startAirports, endAirports, visitedAirports } = parseAirportSets(config);
-    const minConnectionTime = minutesToMilliseconds(config.minConnectionTime);
-    
-    // Filter and process flights
-    const validFlights = filterValidFlights(flights, config);
-    
-    if (validFlights.length === 0) {
-      return { 
-        error: 'No flights available in the specified time window. Try adjusting your dates or expanding the time range. Available data covers August 1 - December 31, 2025.' 
-      };
+    // Validate configuration
+    if (!config.startAirports || !config.endAirports || !config.startDate || !config.startTime || !config.endDate || !config.endTime) {
+      return { error: 'Missing required configuration parameters' };
     }
+
+    // Parse airports
+    const startAirports = new Set(config.startAirports.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3));
+    const endAirports = new Set(config.endAirports.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3));
+    const visitedAirports = new Set(config.visitedAirports?.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3) || []);
+    
+    if (startAirports.size === 0 || endAirports.size === 0) {
+      return { error: 'Invalid airport codes provided' };
+    }
+
+    // Filter valid flights
+    const validFlights = filterValidFlights(flights, config);
+    if (validFlights.length === 0) {
+      return { error: 'No valid flights found for the specified time window' };
+    }
+
+    // Calculate minimum connection time
+    const minConnectionTime = minutesToMilliseconds(config.minConnectionTime || 30);
 
     // Build flight index by origin
     const flightsByOrigin = buildFlightIndex(validFlights);
 
     // Get all possible new airports
     const allDestinations = new Set(validFlights.map(f => f.Destination));
-    const newAirports = new Set([...allDestinations].filter(dest => !visitedAirports.has(dest)));
+    const newAirports = new Set(Array.from(allDestinations).filter(dest => !visitedAirports.has(dest)));
+
+    // For large numbers of end airports, use a more efficient strategy
+    const isLargeEndAirportSet = endAirports.size > 30;
+    let effectiveEndAirports = endAirports;
+    
+    console.log(`🔍 DEBUG: endAirports.size = ${endAirports.size}, threshold = 30, isLargeEndAirportSet = ${isLargeEndAirportSet}`);
+    
+    // Determine which configuration to use
+    let currentConfig: OptimizationConfig;
+    
+    if (isLargeEndAirportSet) {
+      currentConfig = LARGE_AIRPORT_CONFIG;
+      console.log(`🚀 Large end airport set detected (${endAirports.size}). Using large airport configuration.`);
+      console.log(`⚙️  Settings: ${currentConfig.maxIterations.toLocaleString()} iterations, ${currentConfig.maxHeapSize.toLocaleString()} heap size, ${currentConfig.timeoutMs/1000}s timeout`);
+      console.log(`🔍 LARGE_AIRPORT_CONFIG values: maxIterations=${LARGE_AIRPORT_CONFIG.maxIterations}, maxHeapSize=${LARGE_AIRPORT_CONFIG.maxHeapSize}, timeoutMs=${LARGE_AIRPORT_CONFIG.timeoutMs}`);
+      console.log(`🔍 currentConfig values: maxIterations=${currentConfig.maxIterations}, maxHeapSize=${currentConfig.maxHeapSize}, timeoutMs=${currentConfig.timeoutMs}`);
+      
+      // When there are many end airports, prioritize airports that are actually reachable
+      // and have good connections to maximize unique airport visits
+      const reachableEndAirports = new Set<string>();
+      
+      // Find airports that are destinations of flights from start airports
+      validFlights.forEach(flight => {
+        if (startAirports.has(flight.Origin) && endAirports.has(flight.Destination)) {
+          reachableEndAirports.add(flight.Destination);
+        }
+      });
+      
+      // If we found reachable end airports, use those; otherwise fall back to original
+      if (reachableEndAirports.size > 0) {
+        effectiveEndAirports = reachableEndAirports;
+        console.log(`🎯 Using ${reachableEndAirports.size} reachable airports for optimization.`);
+      }
+    } else {
+      currentConfig = ACTIVE_CONFIG;
+      console.log(`📊 Using standard configuration: ${currentConfig.maxIterations.toLocaleString()} iterations`);
+    }
+    
+    console.log(`🔧 Final config: ${currentConfig.maxIterations.toLocaleString()} iterations, ${currentConfig.maxHeapSize.toLocaleString()} heap size`);
 
     // A* search implementation with multi-objective optimization
     const heap: SearchState[] = [];
@@ -247,11 +301,11 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     });
 
     let iterations = 0;
-    const maxIterations = OPTIMIZATION_CONFIG.maxIterations;
+    const maxIterations = currentConfig.maxIterations;
 
     while (heap.length > 0 && iterations < maxIterations) {
       // Check timeout
-      if (Date.now() - startTime > OPTIMIZATION_CONFIG.timeoutMs) {
+      if (Date.now() - startTime > currentConfig.timeoutMs) {
         console.warn(`Optimization timeout after ${iterations} iterations`);
         break;
       }
@@ -263,7 +317,7 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
       const currentAirport = lastFlight.Destination;
 
       // Check if we've reached an end airport
-      if (endAirports.has(currentAirport)) {
+      if (effectiveEndAirports.has(currentAirport)) {
         // Update best path using multi-objective criteria
         if (visitedSet.size > maxVisited || 
             (visitedSet.size === maxVisited && totalDuration < bestDuration)) {
@@ -274,8 +328,18 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         continue;
       }
 
-      // Memoization check
-      const memoKey = `${currentAirport}-${[...visitedSet].sort().join(',')}`;
+      // Improved memoization for large airport sets
+      let memoKey: string;
+      if (isLargeEndAirportSet) {
+        // For large sets, use a more compact memoization key
+        const visitedArray = Array.from(visitedSet).sort();
+        const keyLength = Math.min(visitedArray.length, 10); // Limit key length
+        memoKey = `${currentAirport}-${visitedArray.slice(0, keyLength).join(',')}`;
+      } else {
+        // Original memoization for smaller sets
+        memoKey = `${currentAirport}-${Array.from(visitedSet).sort().join(',')}`;
+      }
+      
       if (visited.has(memoKey) && visited.get(memoKey)! <= arrivalTime.getTime()) {
         continue;
       }
@@ -320,8 +384,14 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
         return a.counter - b.counter;
       });
-      if (heap.length > OPTIMIZATION_CONFIG.maxHeapSize) {
-        heap.splice(OPTIMIZATION_CONFIG.maxHeapSize);
+      
+      // For large end airport sets, increase heap size to allow more exploration
+      const maxHeapSize = isLargeEndAirportSet ? 
+        Math.min(currentConfig.maxHeapSize * 2, 25000) : 
+        currentConfig.maxHeapSize;
+        
+      if (heap.length > maxHeapSize) {
+        heap.splice(maxHeapSize);
       }
     }
 
@@ -340,11 +410,13 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
       };
     } else {
       // Provide helpful error message with suggestions for single-airport loops
+      const startAirportsArray = Array.from(startAirports);
+      const endAirportsArray = Array.from(endAirports);
       const isSingleAirportLoop = startAirports.size === 1 && endAirports.size === 1 && 
-                                  [...startAirports][0] === [...endAirports][0];
+                                  startAirportsArray[0] === endAirportsArray[0];
       
       if (isSingleAirportLoop) {
-        const airport = [...startAirports][0];
+        const airport = startAirportsArray[0];
         return { 
           error: `No valid loop route found from ${airport}. Try adding nearby airports like "${airport},JFK,LGA" for better results, or reduce the time window/connection time.`
         };
@@ -354,6 +426,12 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
       if (visitedCount > 12) {
         return {
           error: `No valid route found with ${visitedCount} excluded airports. Try reducing already-visited airports or extending the time window.`
+        };
+      }
+      
+      if (isLargeEndAirportSet) {
+        return {
+          error: `No valid route found with ${endAirports.size} end airports. The algorithm may be hitting limits. Try:\n• Reducing the number of end airports to 20-30\n• Expanding your time window\n• Reducing minimum connection time\n• Using more specific airport codes`
         };
       }
       

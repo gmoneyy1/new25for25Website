@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Clock, Zap, AlertTriangle } from 'lucide-react';
+import { Settings, Clock, Zap, AlertTriangle, MapPin } from 'lucide-react';
 import { getOptimizationConfig, updateActiveConfig, OptimizationConfig } from '../../lib/optimizationConfig';
 
 interface OptimizationSettingsFormProps {
@@ -37,6 +37,13 @@ export const OptimizationSettingsForm: React.FC<OptimizationSettingsFormProps> =
       description: 'Most thorough search, slowest performance',
       icon: AlertTriangle,
       config: getOptimizationConfig('very-aggressive')
+    },
+    {
+      key: 'large-airport',
+      name: 'Large Airport Sets',
+      description: 'Automatically applied when 30+ end airports detected',
+      icon: MapPin,
+      config: getOptimizationConfig('large-airport')
     }
   ];
 
@@ -101,6 +108,13 @@ export const OptimizationSettingsForm: React.FC<OptimizationSettingsFormProps> =
         <p className="text-xs text-yellow-800">
           <strong>Note:</strong> These settings affect both client-side and server-side optimization. 
           Changes take effect immediately for new optimizations.
+        </p>
+      </div>
+      
+      <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+        <p className="text-xs text-green-800">
+          <strong>Auto-optimization:</strong> When you input 30+ end airports, the system automatically 
+          switches to the "Large Airport Sets" configuration for better performance.
         </p>
       </div>
     </div>
