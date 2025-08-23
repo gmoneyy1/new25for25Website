@@ -48,6 +48,19 @@ export function StripePaymentForm({
   // Debug logging
   useEffect(() => {
     console.log('StripePaymentForm mounted:', { stripe: !!stripe, elements: !!elements, amount });
+    
+    // Add timeout for production debugging
+    const timeout = setTimeout(() => {
+      if (!stripe || !elements) {
+        console.error('Stripe failed to load after 5 seconds:', { 
+          stripe: !!stripe, 
+          elements: !!elements,
+          publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.substring(0, 20) + '...'
+        });
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
   }, [stripe, elements, amount]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -143,8 +156,11 @@ export function StripePaymentForm({
         </label>
         <div className="border border-gray-300 rounded-md p-3 bg-white">
           {!stripe || !elements ? (
-            <div className="text-gray-500 text-center py-4">
-              Loading payment form...
+            <div className="text-center py-4">
+              <div className="text-gray-500 mb-2">Loading payment form...</div>
+              <div className="text-xs text-gray-400">
+                If this takes too long, please refresh the page
+              </div>
             </div>
           ) : (
             <CardElement options={cardElementOptions} />
