@@ -45,6 +45,11 @@ export function StripePaymentForm({
   const [cardError, setCardError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('StripePaymentForm mounted:', { stripe: !!stripe, elements: !!elements, amount });
+  }, [stripe, elements, amount]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -137,7 +142,13 @@ export function StripePaymentForm({
           Card Details
         </label>
         <div className="border border-gray-300 rounded-md p-3 bg-white">
-          <CardElement options={cardElementOptions} />
+          {!stripe || !elements ? (
+            <div className="text-gray-500 text-center py-4">
+              Loading payment form...
+            </div>
+          ) : (
+            <CardElement options={cardElementOptions} />
+          )}
         </div>
         {cardError && (
           <p className="text-red-600 text-sm">{cardError}</p>

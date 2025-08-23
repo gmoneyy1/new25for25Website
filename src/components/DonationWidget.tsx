@@ -23,51 +23,10 @@ export function DonationWidget({ variant = 'compact', className = '' }: Donation
 
   const quickAmounts = ['5', '10', '25', '50'];
 
-  const handleQuickDonation = async (quickAmount: string) => {
-    if (!donorEmail) {
-      toast({
-        title: "Email required",
-        description: "Please enter your email address to donate.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    clearError();
-    
-    try {
-      const result = await submitDonation({
-        amount: parseFloat(quickAmount),
-        currency: 'USD',
-        donorName: donorName || undefined,
-        donorEmail,
-        paymentMethod: 'other'
-      });
-      
-      if (result.success) {
-        toast({
-          title: "Thank you for your donation!",
-          description: `Your $${quickAmount} donation has been processed successfully.`,
-        });
-        
-        // Reset form
-        setDonorName('');
-        setDonorEmail('');
-        setShowForm(false);
-      } else {
-        toast({
-          title: "Donation failed",
-          description: result.error || "There was an error processing your donation",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was an error processing your donation. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleQuickDonation = (quickAmount: string) => {
+    // Redirect to donate page with amount pre-selected
+    const url = `/donate?amount=${quickAmount}`;
+    window.location.href = url;
   };
 
   if (variant === 'compact') {

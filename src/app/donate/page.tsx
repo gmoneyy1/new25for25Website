@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -23,7 +24,8 @@ const DONATION_AMOUNTS = [
   { value: '100', label: '$100', icon: Gift, description: 'Major supporter' },
 ];
 
-export default function DonatePage() {
+function DonatePageContent() {
+  const searchParams = useSearchParams();
   const [selectedAmount, setSelectedAmount] = useState('25');
   const [customAmount, setCustomAmount] = useState('');
   const [donorName, setDonorName] = useState('');
@@ -35,6 +37,14 @@ export default function DonatePage() {
   
   const { isProcessing, error, submitDonation, clearError } = useDonations();
   const { toast } = useToast();
+
+  // Read amount from URL query parameter and pre-select it
+  useEffect(() => {
+    const amountFromUrl = searchParams.get('amount');
+    if (amountFromUrl && DONATION_AMOUNTS.some(option => option.value === amountFromUrl)) {
+      setSelectedAmount(amountFromUrl);
+    }
+  }, [searchParams]);
 
   const handleDonation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,5 +336,13 @@ export default function DonatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DonatePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DonatePageContent />
+    </Suspense>
   );
 }
