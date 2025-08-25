@@ -83,14 +83,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load and parse CSV data
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+    // Load and parse CSV data based on date range
+    const startDate = new Date(config.startDate);
+    const endDate = new Date(config.endDate);
+    const septemberStart = new Date('2025-09-01T00:00:00');
+    const septemberEnd = new Date('2025-09-15T23:59:59');
+    
+    // Determine which dataset to use
+    // Use September data if either start or end date falls within September 1-15
+    const useSeptemberData = (startDate >= septemberStart && startDate <= septemberEnd) ||
+                            (endDate >= septemberStart && endDate <= septemberEnd);
+    
+    console.log('🔍 Date range analysis:', {
+      startDate: config.startDate,
+      endDate: config.endDate,
+      useSeptemberData,
+      septemberStart: septemberStart.toISOString(),
+      septemberEnd: septemberEnd.toISOString()
+    });
+    
+    let csvPath: string;
+    if (useSeptemberData) {
+      csvPath = path.join(process.cwd(), 'september_1_15_all_successful.csv');
+      console.log('📅 Using September dataset (Sept 1-15, 2025)');
+      console.log('📁 CSV path:', csvPath);
+      console.log('📁 Current working directory:', process.cwd());
+    } else {
+      csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+      console.log('📅 Using August dataset (Aug 1 - Dec 31, 2025)');
+      console.log('📁 CSV path:', csvPath);
+    }
+    
+    // Check if file exists
+    try {
+      await fs.access(csvPath);
+      console.log('✅ CSV file exists and is accessible');
+    } catch (error) {
+      console.error('❌ CSV file not accessible:', error);
+      return NextResponse.json(
+        { error: `CSV file not accessible: ${csvPath}` },
+        { status: 500 }
+      );
+    }
+    
     const csvData = await fs.readFile(csvPath, 'utf-8');
+    console.log('📊 CSV data loaded, length:', csvData.length);
     
     // Parse CSV into flight objects
+    console.log('🔍 Starting CSV parsing...');
     const flights = parseCsvText(csvData);
+    console.log('✅ CSV parsing complete, flights count:', flights.length);
     
     if (!validateFlightData(flights)) {
+      console.error('❌ Flight data validation failed');
       return NextResponse.json(
         { error: 'Invalid flight data format' },
         { status: 500 }
@@ -99,6 +144,12 @@ export async function POST(request: NextRequest) {
 
     // Perform optimization
     const result = await optimizeRoute(flights, config);
+
+    // Add dataset information to the result
+    if ('path' in result) {
+      result.datasetUsed = useSeptemberData ? 'september' : 'august';
+      result.hasPricing = useSeptemberData;
+    }
 
     // Return results with secure headers
     return NextResponse.json(result, {

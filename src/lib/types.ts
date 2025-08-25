@@ -5,8 +5,14 @@ export interface Flight {
   'Departure Datetime': string;
   'Arrival Datetime': string;
   'Elapsed Minutes': number;
-  Equipment: string;
-  'Distance (KM)': number;
+  Equipment?: string;
+  'Distance (MI)'?: number; // Made optional - now in miles
+  // September data fields
+  Price?: string;
+  Stops?: string;
+  'Route Type'?: string;
+  // URL field for September data
+  SearchURL?: string;
 }
 
 export interface RouteConfig {
@@ -37,6 +43,10 @@ export interface OptimizationResults {
   totalDistance: number;
   totalDuration: number;
   iterations: number;
+  totalPrice?: number;
+  // Dataset information
+  datasetUsed?: 'august' | 'september';
+  hasPricing?: boolean;
 }
 
 export interface OptimizationError {

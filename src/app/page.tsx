@@ -157,7 +157,9 @@ const JetBlueOptimizer = () => {
         // Missing international airports that were causing issues
         'PUJ', 'STI', 'SDQ', 'NAS',
         // Additional international airports found in CSV analysis
-        'AUA', 'BDA', 'BQN', 'SJU', 'PSE'
+        'AUA', 'BDA', 'BQN', 'SJU', 'PSE',
+        // Additional international airports found in September data
+        'MDE', 'STI', 'SDQ', 'PUJ', 'NAS', 'BQN', 'SJU', 'PSE', 'MBJ', 'KIN', 'MAD', 'GYE'
       ];
       
       // Always add ALL international airports to visited airports (hidden from UI)
