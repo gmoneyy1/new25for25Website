@@ -1,5 +1,7 @@
 import { Flight, RouteConfig, OptimizationResults, OptimizationError, SearchState } from '../types';
+import { parseDateTime, minutesToMilliseconds } from '../dateUtils';
 import { ACTIVE_CONFIG, LARGE_AIRPORT_CONFIG, OptimizationConfig } from '../optimizationConfig';
+import { kilometersToMiles, calculateAirportDistance } from '../distanceUtils';
 
 // Debug imports
 console.log('🔍 Import debug:');
@@ -22,40 +24,20 @@ const calculateHeuristic = (visited: Set<string>, allNew: Set<string>, totalDura
 };
 
 /**
- * Parse date and time strings into a Date object
- * @param dateStr - Date string in YYYY-MM-DD format
- * @param timeStr - Time string in HH:MM format
- * @returns Date object
+ * Check if optimization should use September data based on date range
+ * @param config - Route configuration
+ * @returns True if either start or end date is within September 1-15, 2025
  */
-const parseDateTime = (dateStr: string, timeStr: string): Date => {
-  return new Date(`${dateStr}T${timeStr}:00`);
-};
-
-/**
- * Convert minutes to milliseconds
- * @param minutes - Number of minutes
- * @returns Number of milliseconds
- */
-const minutesToMilliseconds = (minutes: number): number => {
-  return minutes * 60 * 1000;
-};
-
-/**
- * Check if a date is valid
- * @param date - Date object to validate
- * @returns True if date is valid
- */
-const isValidDate = (date: Date): boolean => {
-  return !isNaN(date.getTime());
-};
-
-/**
- * Convert kilometers to miles
- * @param kilometers - Distance in kilometers
- * @returns Distance in miles (rounded)
- */
-const kilometersToMiles = (kilometers: number): number => {
-  return Math.round(kilometers * 0.621371);
+const shouldUseSeptemberData = (config: RouteConfig): boolean => {
+  const septemberStart = new Date('2025-09-01T00:00:00');
+  const septemberEnd = new Date('2025-09-15T23:59:59');
+  
+  const startDate = new Date(config.startDate);
+  const endDate = new Date(config.endDate);
+  
+  // Use September data if either start or end date falls within September 1-15
+  return (startDate >= septemberStart && startDate <= septemberEnd) ||
+         (endDate >= septemberStart && endDate <= septemberEnd);
 };
 
 /**
@@ -68,16 +50,65 @@ const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] =>
   const startDateTime = parseDateTime(config.startDate, config.startTime);
   const endDateTime = parseDateTime(config.endDate, config.endTime);
   
-  // Define the reliable data range (August 1 - December 31, 2025)
-  const reliableDataStart = new Date('2025-08-01T00:00:00');
-  const reliableDataEnd = new Date('2025-12-31T23:59:59');
+  console.log('🔍 filterValidFlights called with:', {
+    startDate: config.startDate,
+    startTime: config.startTime,
+    endDate: config.endDate,
+    endTime: config.endTime,
+    startDateTime: startDateTime.toISOString(),
+    endDateTime: endDateTime.toISOString(),
+    totalFlights: flights.length
+  });
+  
+  // Determine which data range to use
+  const useSeptemberData = shouldUseSeptemberData(config);
+  
+  // Define the reliable data range based on dataset
+  const reliableDataStart = useSeptemberData 
+    ? new Date('2025-09-01T00:00:00')
+    : new Date('2025-08-01T00:00:00');
+  const reliableDataEnd = useSeptemberData
+    ? new Date('2025-09-15T23:59:59')
+    : new Date('2025-12-31T23:59:59');
+
+  console.log('🔍 Data range settings:', {
+    useSeptemberData,
+    reliableDataStart: reliableDataStart.toISOString(),
+    reliableDataEnd: reliableDataEnd.toISOString()
+  });
 
   // Helper function to validate Date objects
   const isValidDateObject = (date: Date): boolean => {
     return !isNaN(date.getTime());
   };
 
-  return flights.filter(flight => {
+  let validFlights = 0;
+  let timeWindowFiltered = 0;
+  let dataRangeFiltered = 0;
+  let invalidDateFiltered = 0;
+  let missingFieldsFiltered = 0;
+
+  // Define international airports for domestic filtering
+  const internationalAirports = new Set([
+    // Europe
+    'AMS', 'CDG', 'LHR', 'LGW', 'DUB', 'EDI', 'MAD', 'LIR',
+    // Mexico & Central America
+    'SJD', 'SJO', 'GUA', 'SAP', 'MDE', 'CTG', 'CUN',
+    // South America
+    'GEO', 'GYE', 'BZE',
+    // Caribbean
+    'CUR', 'GND', 'ANU', 'BGI', 'KIN', 'MBJ', 'POP', 'POS', 'SKB', 'BON', 'GCM', 'PLS',
+    // Additional international destinations
+    'YVR', 'SVD', 'SXM', 'STT', 'STX', 'UVF',
+    // Missing international airports that were causing issues
+    'PUJ', 'STI', 'SDQ', 'NAS',
+    // Additional international airports found in CSV analysis
+    'AUA', 'BDA', 'BQN', 'SJU', 'PSE',
+    // Additional international airports found in September data
+    'MDE', 'STI', 'SDQ', 'PUJ', 'NAS', 'BQN', 'SJU', 'PSE', 'MBJ', 'KIN', 'MAD', 'GYE'
+  ]);
+
+  const filteredFlights = flights.filter(flight => {
     const depTime = new Date(flight['Departure Datetime']);
     const arrTime = new Date(flight['Arrival Datetime']);
     
@@ -87,14 +118,41 @@ const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] =>
                                  arrTime >= reliableDataStart && 
                                  arrTime <= reliableDataEnd;
     
-    return depTime >= startDateTime && 
-           arrTime <= endDateTime && 
-           isWithinReliableRange &&
-           flight.Origin && 
-           flight.Destination && 
-           isValidDateObject(depTime) && 
-           isValidDateObject(arrTime);
+    const isWithinTimeWindow = depTime >= startDateTime && arrTime <= endDateTime;
+    const hasValidDates = isValidDateObject(depTime) && isValidDateObject(arrTime);
+    const hasRequiredFields = flight.Origin && flight.Destination;
+    
+    // Check domestic-only constraint
+    const isDomestic = !internationalAirports.has(flight.Origin) && !internationalAirports.has(flight.Destination);
+    const passesDomesticFilter = !config.domesticOnly || isDomestic;
+    
+    if (!isWithinTimeWindow) timeWindowFiltered++;
+    if (!isWithinReliableRange) dataRangeFiltered++;
+    if (!hasValidDates) invalidDateFiltered++;
+    if (!hasRequiredFields) missingFieldsFiltered++;
+    if (!passesDomesticFilter) timeWindowFiltered++; // Reuse counter for domestic filtering
+    
+    const isValid = isWithinTimeWindow && 
+                   isWithinReliableRange &&
+                   hasValidDates &&
+                   hasRequiredFields &&
+                   passesDomesticFilter;
+    
+    if (isValid) validFlights++;
+    
+    return isValid;
   }).sort((a, b) => new Date(a['Departure Datetime']).getTime() - new Date(b['Departure Datetime']).getTime());
+
+  console.log('🔍 Filtering results:', {
+    validFlights,
+    timeWindowFiltered,
+    dataRangeFiltered,
+    invalidDateFiltered,
+    missingFieldsFiltered,
+    totalFiltered: flights.length - validFlights
+  });
+
+  return filteredFlights;
 };
 
 /**
@@ -150,14 +208,36 @@ const calculateNewAirportsVisited = (path: Flight[], visitedAirports: Set<string
 /**
  * Calculate total distance and duration from flight path
  * @param path - Array of flights
- * @returns Object with total distance (miles) and duration (minutes)
+ * @returns Object with total distance (miles), duration (minutes), and total price
  */
 const calculatePathMetrics = (path: Flight[]) => {
-  const totalDistanceKm = path.reduce((sum, flight) => sum + (flight['Distance (KM)'] || 0), 0);
-  const totalDistanceMiles = kilometersToMiles(totalDistanceKm);
+  let totalDistanceMiles = 0;
+  
+  // Calculate distance - use existing Distance (MI) if available, otherwise calculate from coordinates
+  if (path.length > 0 && 'Distance (MI)' in path[0]) {
+    // August data has Distance (MI) - already in miles
+    totalDistanceMiles = path.reduce((sum, flight) => sum + (flight['Distance (MI)'] || 0), 0);
+  } else {
+    // September data - calculate distances using airport coordinates
+    totalDistanceMiles = path.reduce((sum, flight) => {
+      const distance = calculateAirportDistance(flight.Origin, flight.Destination);
+      return sum + distance;
+    }, 0);
+  }
+  
   const totalDuration = path.reduce((sum, flight) => sum + (flight['Elapsed Minutes'] || 0), 0);
   
-  return { totalDistanceMiles, totalDuration };
+  // Calculate total price for September data
+  let totalPrice = 0;
+  if (path.length > 0 && 'Price' in path[0]) {
+    totalPrice = path.reduce((sum, flight) => {
+      const priceStr = flight.Price || '';
+      const priceMatch = priceStr.match(/\$(\d+)/);
+      return sum + (priceMatch ? parseInt(priceMatch[1]) : 0);
+    }, 0);
+  }
+  
+  return { totalDistanceMiles, totalDuration, totalPrice };
 };
 
 /**
@@ -397,7 +477,7 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
 
     // Calculate results
     if (bestPath.length > 0) {
-      const { totalDistanceMiles, totalDuration } = calculatePathMetrics(bestPath);
+      const { totalDistanceMiles, totalDuration, totalPrice } = calculatePathMetrics(bestPath);
       const newAirportsVisited = calculateNewAirportsVisited(bestPath, visitedAirports);
 
       return {
@@ -406,7 +486,8 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
         newAirportsVisited,
         totalDistance: totalDistanceMiles,
         totalDuration,
-        iterations
+        iterations,
+        totalPrice
       };
     } else {
       // Provide helpful error message with suggestions for single-airport loops

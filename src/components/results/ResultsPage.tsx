@@ -3,7 +3,7 @@ import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, Tr
 import { Results, FlightWithPricing, RoutePricingData, PricingComparison, Flight } from '../../lib/types';
 import { useRoutePricing, usePricingComparison } from '../../hooks/usePricing';
 import { formatPrice } from '../../lib/pricingService';
-import { kilometersToMiles } from '../../lib/distanceUtils';
+import { kilometersToMiles, calculateAirportDistance } from '../../lib/distanceUtils';
 import { formatDateTime, minutesToHours } from '../../lib/dateUtils';
 import { downloadFlightsAsCsv } from '../../lib/csvUtils';
 
@@ -176,7 +176,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
     );
   }
 
-  const { path, totalFlights, newAirportsVisited, totalDistance, totalDuration, iterations } = results;
+  const { path, totalFlights, newAirportsVisited, totalDistance, totalDuration, iterations, totalPrice } = results;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
@@ -214,7 +214,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
       </div>
 
       {/* Summary Cards - Mobile Optimized Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <div className={`grid grid-cols-2 sm:grid-cols-2 ${totalPrice && totalPrice > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3 sm:gap-4 mb-4 sm:mb-6`}>
         <div className="bg-blue-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
             <Plane className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
@@ -254,6 +254,19 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
             </div>
           </div>
         </div>
+
+        {/* Total Price Card - Only show for September data */}
+        {totalPrice && totalPrice > 0 && (
+          <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
+            <div className="flex items-center">
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 mr-2 md:mr-3 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xl md:text-2xl font-bold text-gray-900">${totalPrice}</p>
+                <p className="text-xs md:text-sm text-gray-600">Total Price</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Temporarily hidden - pricing feature in development
         <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
@@ -311,6 +324,29 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
         </div>
       </div>
 
+      {/* Dataset Information */}
+      {results.datasetUsed && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-blue-900">Dataset Information</h3>
+          </div>
+          <div className="mt-2 text-sm text-blue-800">
+            <p>
+              <strong>Dataset:</strong> {results.datasetUsed === 'september' ? 'September 1-15, 2025' : 'August 1 - December 31, 2025'}
+            </p>
+            <p>
+              <strong>Pricing:</strong> {results.hasPricing ? 'Available with booking links' : 'Not available for this date range'}
+            </p>
+            {results.datasetUsed === 'september' && (
+              <p className="text-xs text-blue-600 mt-1">
+                💡 September data includes real-time pricing and direct booking links to JetBlue
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Flight Itinerary */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Flight Itinerary</h3>
@@ -318,11 +354,6 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
         
         <div className="space-y-3">
           {path.map((flight, index) => {
-            const pricing = pricingData?.pricing.find(p => 
-              p.originalFlight?.['Flight Number'] === flight['Flight Number'] &&
-              p.originalFlight?.Origin === flight.Origin &&
-              p.originalFlight?.Destination === flight.Destination
-            );
             const flightKey = `${flight['Flight Number']}-${flight.Origin}-${flight.Destination}`;
             const isExpanded = expandedFlights[flightKey];
 
@@ -355,33 +386,50 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
                   
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <span className="text-xs sm:text-sm text-gray-600">
-                      {kilometersToMiles(flight['Distance (KM)']).toFixed(0)}mi | {flight['Elapsed Minutes']}min
+                      {(() => {
+                        // For August data, try to access the distance field
+                        if (!results.hasPricing) {
+                          // This is August data - should have Distance (MI)
+                          const distanceMI = flight['Distance (MI)'];
+                          if (distanceMI && typeof distanceMI === 'number' && distanceMI > 0) {
+                            return `${Math.round(distanceMI)}mi`;
+                          }
+                          // Fallback: try to access with different property names
+                          const altDistance = (flight as any)['Distance (MI)'] || (flight as any).Distance || (flight as any).distance;
+                          if (altDistance && altDistance > 0) {
+                            return `${Math.round(altDistance)}mi`;
+                          }
+                          return `Distance N/A`;
+                        } else {
+                          // September data - calculate distance from coordinates
+                          const distance = calculateAirportDistance(flight.Origin, flight.Destination);
+                          return distance > 0 ? `${distance}mi` : 'Distance N/A';
+                        }
+                      })()} | {flight['Elapsed Minutes']}min
                     </span>
-                    {/* Temporarily hidden - pricing feature in development */}
-                    {false && pricing ? (
+                    
+                    {/* Show pricing and booking link for September data */}
+                    {results.hasPricing && flight.Price && (
                       <div className="flex items-center space-x-2">
                         <span className="text-lg font-bold text-green-600">
-                          {formatPrice(pricing.price, pricing.currency)}
+                          {flight.Price}
                         </span>
-                        {pricing.bookingLink && (
+                        {flight.SearchURL && (
                           <a
-                            href={pricing.bookingLink}
+                            href={flight.SearchURL}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                            className="inline-flex items-center px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                           >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Book
+                            <ExternalLink className="h-5 w-5 mr-1" />
+                            Book Flight
                           </a>
                         )}
-                        <button
-                          onClick={() => toggleFlightExpansion(flight)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </button>
                       </div>
-                    ) : false && (
+                    )}
+                    
+                    {/* Show pricing unavailable for August data */}
+                    {!results.hasPricing && (
                       <span className="text-sm text-gray-400">Price unavailable</span>
                     )}
                   </div>
