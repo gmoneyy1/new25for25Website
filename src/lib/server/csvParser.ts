@@ -1,4 +1,5 @@
 import { Flight } from '../types';
+import { calculateAirportDistance } from '../distanceUtils';
 
 // Define the reliable data ranges
 const AUGUST_DATA_START = new Date('2025-08-01T00:00:00');
@@ -234,7 +235,8 @@ const parseSeptemberData = (csvText: string): Flight[] => {
         'Elapsed Minutes': duration,
         'Price': price,
         'SearchURL': searchURL,
-        'Route Type': 'OK'
+        'Route Type': 'OK',
+        'Distance (MI)': calculateAirportDistance(origin, destination)
       };
       
       // Handle flights that arrive the next day
@@ -358,8 +360,8 @@ export const validateFlightData = (flights: Flight[]): boolean => {
 
   // Add format-specific required fields
   if (isSeptemberData) {
-    // September data: Price and SearchURL are required
-    requiredFields.push('Price', 'SearchURL');
+    // September data: Price, SearchURL, and Distance (MI) are required
+    requiredFields.push('Price', 'SearchURL', 'Distance (MI)');
   } else {
     // August data: Equipment and Distance (MI) are required
     requiredFields.push('Equipment', 'Distance (MI)');

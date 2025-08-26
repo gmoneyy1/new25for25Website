@@ -256,7 +256,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
         </div>
 
         {/* Total Price Card - Only show for September data */}
-        {totalPrice && totalPrice > 0 && (
+        {!!(totalPrice && totalPrice > 0) && (
           <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
             <div className="flex items-center">
               <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 mr-2 md:mr-3 flex-shrink-0" />
@@ -364,7 +364,6 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
                     <div className="flex items-center space-x-2">
                       <Plane className="h-4 w-4 text-blue-500" />
                       <span className="font-medium">{flight['Flight Number']}</span>
-                      <span className="text-sm text-gray-500">223</span>
                     </div>
                     
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2">

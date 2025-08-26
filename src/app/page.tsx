@@ -39,9 +39,9 @@ const JetBlueOptimizer = () => {
     supportsWorkers
   } = useWorkerOptimization();
   const [config, setConfig] = useState<RouteConfig>({
-    startDate: '2025-08-15',
-    startTime: '19:00',
-    endDate: '2025-08-16',
+    startDate: '2025-09-12',
+    startTime: '07:00',
+    endDate: '2025-09-14',
     endTime: '23:59',
     startAirports: 'EWR,JFK,HPN,LGA',
     endAirports: 'EWR,JFK,HPN,LGA',

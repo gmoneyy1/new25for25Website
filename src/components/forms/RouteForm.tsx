@@ -280,7 +280,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             </label>
             <input
               type="number"
-              min="30"
+              min="1"
               max="480"
               value={config.minConnectionTime}
               onChange={(e) => handleInputChange('minConnectionTime', parseInt(e.target.value) || 60)}
@@ -295,7 +295,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               </p>
             )}
             <p className="text-xs text-gray-500 mt-2">
-              Recommended: 60-120 minutes for domestic flights
+              Recommended: 60-120 minutes for domestic flights, but you can set lower values if needed
             </p>
           </div>
         </div>
