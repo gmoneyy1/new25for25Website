@@ -167,7 +167,7 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
 
     // Get all possible new airports
     const allDestinations = new Set(validFlights.map(f => f.Destination));
-    const newAirports = new Set([...allDestinations].filter(dest => !visitedAirports.has(dest)));
+    const newAirports = new Set(Array.from(allDestinations).filter(dest => !visitedAirports.has(dest)));
 
     // A* search implementation with multi-objective optimization
     const heap: SearchState[] = [];
@@ -237,7 +237,7 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
       }
 
       // Memoization check
-      const memoKey = `${currentAirport}-${[...visitedSet].sort().join(',')}`;
+      const memoKey = `${currentAirport}-${Array.from(visitedSet).sort().join(',')}`;
       if (visited.has(memoKey) && visited.get(memoKey)! <= arrivalTime.getTime()) {
         continue;
       }
@@ -303,10 +303,10 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     } else {
       // Provide helpful error message with suggestions for single-airport loops
       const isSingleAirportLoop = startAirports.size === 1 && endAirports.size === 1 && 
-                                  [...startAirports][0] === [...endAirports][0];
+                                  Array.from(startAirports)[0] === Array.from(endAirports)[0];
       
       if (isSingleAirportLoop) {
-        const airport = [...startAirports][0];
+        const airport = Array.from(startAirports)[0];
         return { 
           error: `No valid loop route found from ${airport}. Try adding nearby airports like "${airport},JFK,LGA" for better results, or reduce the time window/connection time.`
         };

@@ -1,6 +1,7 @@
 import { Flight } from './types';
 
 // Define the reliable data range (August 1 - December 31, 2025)
+// Note: September 1-30 uses separate dataset with distances
 const RELIABLE_DATA_START = new Date('2025-08-01T00:00:00');
 const RELIABLE_DATA_END = new Date('2025-12-31T23:59:59');
 

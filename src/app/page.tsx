@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { MapPin, Save } from 'lucide-react';
 import { RouteForm } from '../components/forms/RouteForm';
-import { QuickSettingsForm } from '../components/forms/QuickSettingsForm';
 import { ResultsPage } from '../components/results/ResultsPage';
 import RouteMapWithTiles from '../components/RouteMapWithTiles';
 import SimpleSavedRoutes from '../components/SimpleSavedRoutes';
@@ -109,28 +108,38 @@ const JetBlueOptimizer = () => {
 
   // Debug: Monitor currentConfig changes
   useEffect(() => {
-    console.log('🔄 currentConfig changed:', currentConfig);
-    if (currentConfig) {
-      console.log('📊 Triggering optimization with config:', currentConfig);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 currentConfig changed:', currentConfig);
+      if (currentConfig) {
+        console.log('📊 Triggering optimization with config:', currentConfig);
+      }
     }
   }, [currentConfig]);
 
   const handleOptimizeRoute = useCallback(async () => {
-    console.log('🔍 handleOptimizeRoute called');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 handleOptimizeRoute called');
+    }
     
     // Validate form before submitting
     const errors = validateRouteConfig(config);
-    console.log('📋 Form validation errors:', errors);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📋 Form validation errors:', errors);
+    }
     
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      console.log('❌ Form validation failed, scrolling to top');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ Form validation failed, scrolling to top');
+      }
       // Scroll to top to show validation errors
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    console.log('✅ Form validation passed');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Form validation passed');
+    }
 
     // Handle domestic-only logic
     let optimizationConfig = { ...config };
@@ -168,40 +177,52 @@ const JetBlueOptimizer = () => {
       const allInternational = Array.from(new Set([...currentVisited, ...internationalAirports]));
       optimizationConfig.visitedAirports = allInternational.join(',');
       
-      console.log('🌍 Domestic-only mode: Excluding ALL international airports:', internationalAirports);
-      console.log('🚫 Total airports excluded:', allInternational.length);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🌍 Domestic-only mode: Excluding ALL international airports:', internationalAirports);
+        console.log('🚫 Total airports excluded:', allInternational.length);
+      }
     } else {
       // For international mode, just use the effective visited airports
       optimizationConfig.visitedAirports = effectiveVisitedAirports;
     }
     
-    console.log('🔧 Effective visited airports for optimization:', optimizationConfig.visitedAirports);
-
-    console.log('🚀 Starting optimization for config:', optimizationConfig);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Effective visited airports for optimization:', optimizationConfig.visitedAirports);
+      console.log('🚀 Starting optimization for config:', optimizationConfig);
+    }
     
     if (supportsWorkers && flights.length > 0) {
-      console.log('🔄 Using web worker optimization');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Using web worker optimization');
+      }
       try {
         const result = await workerOptimize(flights, optimizationConfig);
         // Manually update cache and UI state
         // We'll need to update the hook to handle worker results
-        console.log('✅ Worker result:', result);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Worker result:', result);
+        }
       } catch (error) {
-        console.error('❌ Worker optimization failed:', error);
-        // Fallback to regular optimization
-        console.log('🔄 Falling back to regular optimization');
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Worker optimization failed:', error);
+          console.log('🔄 Falling back to regular optimization');
+        }
         setCurrentConfig(optimizationConfig);
       }
     } else {
       // Use regular optimization
-      console.log('🔄 Using regular optimization (no web worker)');
-      console.log('📊 Setting currentConfig to:', optimizationConfig);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Using regular optimization (no web worker)');
+        console.log('📊 Setting currentConfig to:', optimizationConfig);
+      }
       setCurrentConfig(optimizationConfig);
     }
   }, [config, supportsWorkers, flights, workerOptimize]);
 
   const handleDownload = useCallback(() => {
-    console.log('Download completed');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Download completed');
+    }
   }, []);
 
 
@@ -218,7 +239,9 @@ const JetBlueOptimizer = () => {
 
 
   const handleLoadSavedConfig = useCallback((savedConfig: RouteConfig) => {
-    console.log('Loading saved config:', savedConfig);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Loading saved config:', savedConfig);
+    }
     
     // Update the form with the saved configuration first
     setConfig(savedConfig);
@@ -230,12 +253,29 @@ const JetBlueOptimizer = () => {
     
     // Trigger optimization after a short delay to ensure config is updated
     setTimeout(() => {
-      console.log('Auto-optimizing loaded route...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Auto-optimizing loaded route...');
+      }
       setCurrentConfig(savedConfig);
     }, 100);
     
-    console.log('Config loaded and optimization triggered');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Config loaded and optimization triggered');
+    }
   }, [showMap]);
+
+  // Check if current route uses September data (for cost optimization)
+  const isSeptemberData = useCallback(() => {
+    const startDate = new Date(config.startDate);
+    const endDate = new Date(config.endDate);
+    const septemberStart = new Date('2025-09-01T00:00:00');
+    const septemberEnd = new Date('2025-09-30T23:59:59');
+    
+    // Use September data if either start or end date falls within September 1-30
+    return (startDate >= septemberStart && startDate <= septemberEnd) ||
+           (endDate >= septemberStart && endDate <= septemberEnd);
+  }, [config.startDate, config.endDate]);
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -248,7 +288,7 @@ const JetBlueOptimizer = () => {
               JetBlue 25for25 Route Optimizer
             </h1>
             <p className="text-gray-600 text-base md:text-lg px-4 max-w-2xl">
-              Find the optimal flight path to visit the most new airports efficiently
+              Find the cheapest route to visit the most new airports efficiently
             </p>
             
             {/* Domestic Mode Indicator */}
@@ -265,25 +305,41 @@ const JetBlueOptimizer = () => {
             
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap justify-center gap-3 mt-4">
-              <button
-                onClick={() => setShowMap(!showMap)}
-                disabled={!results || !('path' in results)}
-                className={`flex items-center px-4 py-2 text-sm rounded-full transition-colors min-h-[40px] ${
-                  !results || !('path' in results)
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : showMap 
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                title={
-                  !results || !('path' in results)
-                    ? 'Run optimization first to view route map'
-                    : 'Toggle Route Map'
-                }
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                {showMap ? 'Hide Map' : 'Show Map'}
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  disabled={!results || !('path' in results)}
+                  className={`flex items-center px-4 py-2 text-sm rounded-full transition-colors min-h-[40px] ${
+                    !results || !('path' in results)
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : showMap 
+                        ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={
+                    !results || !('path' in results)
+                      ? 'Run optimization first to view route map'
+                      : 'Toggle Route Map'
+                  }
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {showMap ? 'Hide Map' : 'Show Map'}
+                </button>
+                
+                {/* Hover tooltip for disabled state */}
+                {(!results || !('path' in results)) && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                      <span className="text-blue-700 text-sm">
+                        Map will be available after running optimization
+                      </span>
+                    </div>
+                    {/* Arrow pointing down */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-blue-200"></div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowSavedConfigs(!showSavedConfigs)}
                 className={`flex items-center px-4 py-2 text-sm rounded-full transition-colors min-h-[40px] ${
@@ -298,15 +354,18 @@ const JetBlueOptimizer = () => {
               </button>
             </div>
             
-            {/* Map Status Indicator */}
-            {!results || !('path' in results) ? (
-              <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg inline-flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                <span className="text-blue-700 text-sm">
-                  Map will be available after running optimization
+            
+            
+            
+            {/* Route Validation Warning */}
+            {results && 'hybridResults' in results && results.hybridResults && 
+             (!results.hybridResults.standardRoute.isValid || !results.hybridResults.costOptimizedRoute.isValid) && (
+              <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg inline-flex items-center">
+                <span className="text-red-700 text-sm">
+                  ⚠️ Some routes are incomplete - check results for details
                 </span>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
 
@@ -365,12 +424,6 @@ const JetBlueOptimizer = () => {
                 isLoading={isLoading || isOptimizing || isWorkerOptimizing}
                 hasData={true}
                 errors={formErrors}
-              />
-            </ErrorBoundary>
-            <ErrorBoundary>
-              <QuickSettingsForm
-                config={config}
-                onConfigChange={setConfig}
               />
             </ErrorBoundary>
             

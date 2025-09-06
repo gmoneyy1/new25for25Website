@@ -2,6 +2,7 @@ import { Flight, RouteConfig, Results, FlightPricing, PricingSearchRequest } fro
 
 const SCHEDULE_URL = '/api/schedule';
 const OPTIMIZE_URL = '/api/optimize';
+const HYBRID_OPTIMIZE_URL = '/api/hybrid-optimize';
 const PRICING_URL = '/api/pricing';
 
 // Custom error types for better error handling
@@ -167,7 +168,7 @@ export const checkFlightScheduleAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Optimize route using backend API
+ * Optimize route using backend API (original A* algorithm)
  * @param config - Route configuration
  * @returns Promise with optimization results
  * @throws {ApiError | NetworkError} On failure
@@ -180,6 +181,26 @@ export const optimizeRoute = async (config: RouteConfig): Promise<Results> => {
       body: JSON.stringify({ config }),
     },
     'Route optimization'
+  );
+
+  const result = await response.json();
+  return result;
+};
+
+/**
+ * Optimize route using hybrid algorithm (Modified Dijkstra's + BFS enumeration)
+ * @param config - Route configuration
+ * @returns Promise with optimization results including cost alternatives
+ * @throws {ApiError | NetworkError} On failure
+ */
+export const hybridOptimizeRoute = async (config: RouteConfig): Promise<Results> => {
+  const response = await fetchWithRetry(
+    HYBRID_OPTIMIZE_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify(config),
+    },
+    'Hybrid route optimization'
   );
 
   const result = await response.json();
@@ -218,8 +239,24 @@ export const getFlightPricing = async (
     const pricing = await response.json();
     return pricing;
   } catch (error) {
-    if (error instanceof ApiError && error.statusCode === 404) {
-      return null; // No pricing found is expected
+    if (error instanceof ApiError) {
+      if (error.statusCode === 404) {
+        // Distinguish between "pricing not found" and "pricing service down"
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Pricing not found for ${origin}-${destination} on ${departureDate}`);
+        }
+        return null; // No pricing found is expected
+      }
+      if (error.statusCode >= 500) {
+        // Server error - pricing service might be down
+        console.warn(`Pricing service error (${error.statusCode}): ${error.message}`);
+        throw new ApiError(
+          error.message,
+          error.statusCode,
+          'Pricing service is temporarily unavailable. Route optimization will continue without pricing data.',
+          true
+        );
+      }
     }
     throw error;
   }
@@ -366,8 +403,22 @@ export const getPricingComparison = async (
     const result = await response.json();
     return result;
   } catch (error) {
-    if (error instanceof ApiError && error.statusCode === 404) {
-      return null; // No pricing comparison found is expected
+    if (error instanceof ApiError) {
+      if (error.statusCode === 404) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Pricing comparison not found for ${origin}-${destination} on ${departureDate}`);
+        }
+        return null; // No pricing comparison found is expected
+      }
+      if (error.statusCode >= 500) {
+        console.warn(`Pricing comparison service error (${error.statusCode}): ${error.message}`);
+        throw new ApiError(
+          error.message,
+          error.statusCode,
+          'Pricing comparison service is temporarily unavailable.',
+          true
+        );
+      }
     }
     throw error;
   }
