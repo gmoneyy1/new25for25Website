@@ -3,6 +3,21 @@ import { parseDateTime, minutesToMilliseconds } from '../dateUtils';
 import { ACTIVE_CONFIG, LARGE_AIRPORT_CONFIG, OptimizationConfig } from '../optimizationConfig';
 import { kilometersToMiles, calculateAirportDistance } from '../distanceUtils';
 
+/**
+ * Safely parse flight cost from price string
+ * @param price - Price string (e.g., "$123" or "123")
+ * @returns Numeric cost or 0 if invalid
+ */
+const parseFlightCost = (price?: string): number => {
+  if (!price || typeof price !== 'string') return 0;
+  
+  // Remove currency symbols and whitespace
+  const cleanPrice = price.replace(/[$,\s]/g, '');
+  const numericPrice = parseFloat(cleanPrice);
+  
+  return isNaN(numericPrice) ? 0 : numericPrice;
+};
+
 // Debug imports
 console.log('🔍 Import debug:');
 console.log(`ACTIVE_CONFIG.maxIterations: ${ACTIVE_CONFIG.maxIterations}`);
@@ -17,25 +32,26 @@ console.log(`ACTIVE_CONFIG === LARGE_AIRPORT_CONFIG: ${ACTIVE_CONFIG === LARGE_A
  * @returns Heuristic score (prioritizes unique airports, then minimizes duration)
  */
 const calculateHeuristic = (visited: Set<string>, allNew: Set<string>, totalDuration: number = 0): number => {
-  const remainingAirports = allNew.size - visited.size;
-  const airportScore = remainingAirports * 1000; // Primary objective: unique airports (high weight)
+  // FIXED: Prioritize MORE visited airports, not fewer remaining airports
+  const visitedAirports = visited.size;
+  const airportScore = visitedAirports * 1000; // Primary objective: maximize unique airports visited (high weight)
   const durationPenalty = totalDuration * 0.1; // Secondary objective: minimize duration (low weight)
-  return airportScore + durationPenalty;
+  return airportScore - durationPenalty; // Higher airport count and lower duration = higher score
 };
 
 /**
  * Check if optimization should use September data based on date range
  * @param config - Route configuration
- * @returns True if either start or end date is within September 1-15, 2025
+ * @returns True if either start or end date is within September 1-30, 2025
  */
 const shouldUseSeptemberData = (config: RouteConfig): boolean => {
   const septemberStart = new Date('2025-09-01T00:00:00');
-  const septemberEnd = new Date('2025-09-15T23:59:59');
+  const septemberEnd = new Date('2025-09-30T23:59:59');
   
   const startDate = new Date(config.startDate);
   const endDate = new Date(config.endDate);
   
-  // Use September data if either start or end date falls within September 1-15
+  // Use September data if either start or end date falls within September 1-30
   return (startDate >= septemberStart && startDate <= septemberEnd) ||
          (endDate >= septemberStart && endDate <= septemberEnd);
 };
@@ -68,7 +84,7 @@ const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] =>
     ? new Date('2025-09-01T00:00:00')
     : new Date('2025-08-01T00:00:00');
   const reliableDataEnd = useSeptemberData
-    ? new Date('2025-09-15T23:59:59')
+    ? new Date('2025-09-30T23:59:59')
     : new Date('2025-12-31T23:59:59');
 
   console.log('🔍 Data range settings:', {
@@ -231,9 +247,7 @@ const calculatePathMetrics = (path: Flight[]) => {
   let totalPrice = 0;
   if (path.length > 0 && 'Price' in path[0]) {
     totalPrice = path.reduce((sum, flight) => {
-      const priceStr = flight.Price || '';
-      const priceMatch = priceStr.match(/\$(\d+)/);
-      return sum + (priceMatch ? parseInt(priceMatch[1]) : 0);
+      return sum + parseFlightCost(flight.Price);
     }, 0);
   }
   
@@ -245,16 +259,45 @@ const calculatePathMetrics = (path: Flight[]) => {
  * @param visitedCount - Number of unique airports visited
  * @param totalDuration - Total duration in minutes
  * @param totalPossible - Total possible new airports
- * @returns Score (higher is better)
+ * @param totalCost - Total cost in dollars (optional)
+ * @param config - Route configuration for optimization mode
+ * @returns Score (higher is better for airport optimization, lower is better for cost optimization)
  */
-const calculateMultiObjectiveScore = (visitedCount: number, totalDuration: number, totalPossible: number): number => {
+const calculateMultiObjectiveScore = (
+  visitedCount: number, 
+  totalDuration: number, 
+  totalPossible: number, 
+  totalCost: number = 0,
+  config?: RouteConfig
+): number => {
+  // Check if we're in cost optimization mode
+  if (config?.optimizeForCost && config?.targetAirportCount) {
+    // Cost optimization mode: minimize cost while maintaining EXACT airport count
+    const targetAirports = config.targetAirportCount;
+    
+    // CRITICAL: If we don't have exactly the target number of airports, this route is invalid
+    if (visitedCount !== targetAirports) {
+      return Number.MAX_SAFE_INTEGER; // Make this route completely invalid
+    }
+    
+    // We have the exact airport count, now minimize cost
+    // Return negative score so that lower cost = higher score (better)
+    return -totalCost;
+  }
+  
+  // Standard airport optimization mode with cost as tiebreaker
   // Normalize visited count to 0-1 range
   const normalizedVisited = visitedCount / Math.max(totalPossible, 1);
   // Normalize duration (assume max 24 hours = 1440 minutes)
   const normalizedDuration = Math.min(totalDuration / 1440, 1);
+  // Normalize cost (assume max reasonable trip cost = $5000)
+  const normalizedCost = totalCost > 0 ? Math.min(totalCost / 5000, 1) : 0;
   
-  // Weight unique airports much higher than duration
-  return (normalizedVisited * 1000) - (normalizedDuration * 10);
+  // Multi-objective optimization: airports first, then cost as tiebreaker, then duration
+  // Priority: 1) Maximize airports (weight: 1000)
+  //           2) Minimize cost as tiebreaker (weight: 5)  
+  //           3) Minimize duration (weight: 1)
+  return (normalizedVisited * 1000) - (normalizedCost * 5) - (normalizedDuration * 1);
 };
 
 // Configuration for optimization algorithm
@@ -267,262 +310,39 @@ const OPTIMIZATION_CONFIG = ACTIVE_CONFIG;
  * @returns Optimization results or error
  */
 export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Promise<OptimizationResults | OptimizationError> => {
-  const startTime = Date.now();
+  console.log('🚨 USING HYBRID OPTIMIZER FOR STANDARD OPTIMIZATION! 🚨');
   
-  console.log('🚨 OPTIMIZATION ENGINE CALLED - NEW VERSION! 🚨');
+  // Use hybrid optimizer for all standard optimizations to maximize airports
+  const { hybridOptimizeRoute } = await import('../hybridOptimization');
+  return await hybridOptimizeRoute(flights, config);
+};
+
+/**
+ * Optimize route for cost while maintaining the same number of airports
+ * @param flights - Array of all flights
+ * @param config - Route configuration with targetAirportCount set
+ * @returns Optimization results or error
+ */
+export const optimizeRouteForCost = async (flights: Flight[], config: RouteConfig): Promise<OptimizationResults | OptimizationError> => {
+  if (!config.targetAirportCount) {
+    return { error: 'targetAirportCount is required for cost optimization' };
+  }
+
+  console.log(`💰 Starting cost optimization for ${config.targetAirportCount} airports...`);
   
+  // Use the NEW hybrid algorithm instead of the old A*
   try {
-    // Validate configuration
-    if (!config.startAirports || !config.endAirports || !config.startDate || !config.startTime || !config.endDate || !config.endTime) {
-      return { error: 'Missing required configuration parameters' };
-    }
-
-    // Parse airports
-    const startAirports = new Set(config.startAirports.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3));
-    const endAirports = new Set(config.endAirports.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3));
-    const visitedAirports = new Set(config.visitedAirports?.split(',').map(a => a.trim().toUpperCase()).filter(a => a.length === 3) || []);
-    
-    if (startAirports.size === 0 || endAirports.size === 0) {
-      return { error: 'Invalid airport codes provided' };
-    }
-
-    // Filter valid flights
-    const validFlights = filterValidFlights(flights, config);
-    if (validFlights.length === 0) {
-      return { error: 'No valid flights found for the specified time window' };
-    }
-
-    // Calculate minimum connection time
-    const minConnectionTime = minutesToMilliseconds(config.minConnectionTime || 30);
-
-    // Build flight index by origin
-    const flightsByOrigin = buildFlightIndex(validFlights);
-
-    // Get all possible new airports
-    const allDestinations = new Set(validFlights.map(f => f.Destination));
-    const newAirports = new Set(Array.from(allDestinations).filter(dest => !visitedAirports.has(dest)));
-
-    // For large numbers of end airports, use a more efficient strategy
-    const isLargeEndAirportSet = endAirports.size > 30;
-    let effectiveEndAirports = endAirports;
-    
-    console.log(`🔍 DEBUG: endAirports.size = ${endAirports.size}, threshold = 30, isLargeEndAirportSet = ${isLargeEndAirportSet}`);
-    
-    // Determine which configuration to use
-    let currentConfig: OptimizationConfig;
-    
-    if (isLargeEndAirportSet) {
-      currentConfig = LARGE_AIRPORT_CONFIG;
-      console.log(`🚀 Large end airport set detected (${endAirports.size}). Using large airport configuration.`);
-      console.log(`⚙️  Settings: ${currentConfig.maxIterations.toLocaleString()} iterations, ${currentConfig.maxHeapSize.toLocaleString()} heap size, ${currentConfig.timeoutMs/1000}s timeout`);
-      console.log(`🔍 LARGE_AIRPORT_CONFIG values: maxIterations=${LARGE_AIRPORT_CONFIG.maxIterations}, maxHeapSize=${LARGE_AIRPORT_CONFIG.maxHeapSize}, timeoutMs=${LARGE_AIRPORT_CONFIG.timeoutMs}`);
-      console.log(`🔍 currentConfig values: maxIterations=${currentConfig.maxIterations}, maxHeapSize=${currentConfig.maxHeapSize}, timeoutMs=${currentConfig.timeoutMs}`);
-      
-      // When there are many end airports, prioritize airports that are actually reachable
-      // and have good connections to maximize unique airport visits
-      const reachableEndAirports = new Set<string>();
-      
-      // Find airports that are destinations of flights from start airports
-      validFlights.forEach(flight => {
-        if (startAirports.has(flight.Origin) && endAirports.has(flight.Destination)) {
-          reachableEndAirports.add(flight.Destination);
-        }
-      });
-      
-      // If we found reachable end airports, use those; otherwise fall back to original
-      if (reachableEndAirports.size > 0) {
-        effectiveEndAirports = reachableEndAirports;
-        console.log(`🎯 Using ${reachableEndAirports.size} reachable airports for optimization.`);
-      }
-    } else {
-      currentConfig = ACTIVE_CONFIG;
-      console.log(`📊 Using standard configuration: ${currentConfig.maxIterations.toLocaleString()} iterations`);
-    }
-    
-    console.log(`🔧 Final config: ${currentConfig.maxIterations.toLocaleString()} iterations, ${currentConfig.maxHeapSize.toLocaleString()} heap size`);
-
-    // A* search implementation with multi-objective optimization
-    const heap: SearchState[] = [];
-    const visited = new Map<string, number>();
-    let bestPath: Flight[] = [];
-    let maxVisited = 0;
-    let bestDuration = Infinity;
-    let counter = 0;
-
-    const startDateTime = parseDateTime(config.startDate, config.startTime);
-    const endDateTime = parseDateTime(config.endDate, config.endTime);
-
-    // Initialize with starting flights
-    validFlights.forEach(flight => {
-      if (startAirports.has(flight.Origin)) {
-        const visitedSet = new Set<string>();
-        if (newAirports.has(flight.Destination)) {
-          visitedSet.add(flight.Destination);
-        }
-        
-        const flightDuration = flight['Elapsed Minutes'] || 0;
-        const score = calculateMultiObjectiveScore(visitedSet.size, flightDuration, newAirports.size);
-        heap.push({
-          score,
-          counter: counter++,
-          path: [flight],
-          visitedSet,
-          arrivalTime: new Date(flight['Arrival Datetime']),
-          totalDuration: flightDuration
-        });
-      }
-    });
-
-    // Sort heap by score, then by duration, then by counter for deterministic ordering
-    heap.sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
-      return a.counter - b.counter;
-    });
-
-    let iterations = 0;
-    const maxIterations = currentConfig.maxIterations;
-
-    while (heap.length > 0 && iterations < maxIterations) {
-      // Check timeout
-      if (Date.now() - startTime > currentConfig.timeoutMs) {
-        console.warn(`Optimization timeout after ${iterations} iterations`);
-        break;
-      }
-      
-      iterations++;
-      const current = heap.shift()!;
-      const { path, visitedSet, arrivalTime, totalDuration } = current;
-      const lastFlight = path[path.length - 1];
-      const currentAirport = lastFlight.Destination;
-
-      // Check if we've reached an end airport
-      if (effectiveEndAirports.has(currentAirport)) {
-        // Update best path using multi-objective criteria
-        if (visitedSet.size > maxVisited || 
-            (visitedSet.size === maxVisited && totalDuration < bestDuration)) {
-          maxVisited = visitedSet.size;
-          bestDuration = totalDuration;
-          bestPath = [...path];
-        }
-        continue;
-      }
-
-      // Improved memoization for large airport sets
-      let memoKey: string;
-      if (isLargeEndAirportSet) {
-        // For large sets, use a more compact memoization key
-        const visitedArray = Array.from(visitedSet).sort();
-        const keyLength = Math.min(visitedArray.length, 10); // Limit key length
-        memoKey = `${currentAirport}-${visitedArray.slice(0, keyLength).join(',')}`;
-      } else {
-        // Original memoization for smaller sets
-        memoKey = `${currentAirport}-${Array.from(visitedSet).sort().join(',')}`;
-      }
-      
-      if (visited.has(memoKey) && visited.get(memoKey)! <= arrivalTime.getTime()) {
-        continue;
-      }
-      visited.set(memoKey, arrivalTime.getTime());
-
-      // Find connecting flights
-      const nextFlights = flightsByOrigin[currentAirport] || [];
-      const minDepartureTime = new Date(arrivalTime.getTime() + minConnectionTime);
-
-      nextFlights.forEach(nextFlight => {
-        const nextDepTime = new Date(nextFlight['Departure Datetime']);
-        const nextArrTime = new Date(nextFlight['Arrival Datetime']);
-
-        // Check constraints
-        if (nextDepTime < minDepartureTime) return;
-        if (nextArrTime > endDateTime) return;
-        if (nextFlight['Flight Number'] === lastFlight['Flight Number']) return;
-
-        const newVisitedSet = new Set(visitedSet);
-        if (newAirports.has(nextFlight.Destination)) {
-          newVisitedSet.add(nextFlight.Destination);
-        }
-
-        const newPath = [...path, nextFlight];
-        const newTotalDuration = totalDuration + (nextFlight['Elapsed Minutes'] || 0);
-        const newScore = calculateMultiObjectiveScore(newVisitedSet.size, newTotalDuration, newAirports.size);
-        
-        heap.push({
-          score: newScore,
-          counter: counter++,
-          path: newPath,
-          visitedSet: newVisitedSet,
-          arrivalTime: nextArrTime,
-          totalDuration: newTotalDuration
-        });
-      });
-
-      // Keep heap sorted and limit size for performance
-      // Sort by score first, then by total duration as tiebreaker, then by counter for deterministic ordering
-      heap.sort((a, b) => {
-        if (a.score !== b.score) return a.score - b.score;
-        if (a.totalDuration !== b.totalDuration) return a.totalDuration - b.totalDuration;
-        return a.counter - b.counter;
-      });
-      
-      // For large end airport sets, increase heap size to allow more exploration
-      const maxHeapSize = isLargeEndAirportSet ? 
-        Math.min(currentConfig.maxHeapSize * 2, 25000) : 
-        currentConfig.maxHeapSize;
-        
-      if (heap.length > maxHeapSize) {
-        heap.splice(maxHeapSize);
-      }
-    }
-
-    // Calculate results
-    if (bestPath.length > 0) {
-      const { totalDistanceMiles, totalDuration, totalPrice } = calculatePathMetrics(bestPath);
-      const newAirportsVisited = calculateNewAirportsVisited(bestPath, visitedAirports);
-
-      return {
-        path: bestPath,
-        totalFlights: bestPath.length,
-        newAirportsVisited,
-        totalDistance: totalDistanceMiles,
-        totalDuration,
-        iterations,
-        totalPrice
-      };
-    } else {
-      // Provide helpful error message with suggestions for single-airport loops
-      const startAirportsArray = Array.from(startAirports);
-      const endAirportsArray = Array.from(endAirports);
-      const isSingleAirportLoop = startAirports.size === 1 && endAirports.size === 1 && 
-                                  startAirportsArray[0] === endAirportsArray[0];
-      
-      if (isSingleAirportLoop) {
-        const airport = startAirportsArray[0];
-        return { 
-          error: `No valid loop route found from ${airport}. Try adding nearby airports like "${airport},JFK,LGA" for better results, or reduce the time window/connection time.`
-        };
-      }
-      
-      const visitedCount = visitedAirports.size;
-      if (visitedCount > 12) {
-        return {
-          error: `No valid route found with ${visitedCount} excluded airports. Try reducing already-visited airports or extending the time window.`
-        };
-      }
-      
-      if (isLargeEndAirportSet) {
-        return {
-          error: `No valid route found with ${endAirports.size} end airports. The algorithm may be hitting limits. Try:\n• Reducing the number of end airports to 20-30\n• Expanding your time window\n• Reducing minimum connection time\n• Using more specific airport codes`
-        };
-      }
-      
-      return { 
-        error: 'No possible route found with your current settings. Try:\n• Expanding your time window\n• Reducing minimum connection time\n• Adding more start/end airports\n• Adjusting your visited airports list' 
-      };
-    }
-
+    const { hybridOptimizeRoute } = await import('../hybridOptimization');
+    console.log('🚀 Using hybrid algorithm for cost optimization');
+    return await hybridOptimizeRoute(flights, config);
   } catch (error) {
-    console.error('Optimization error:', error);
-    return { error: `An error occurred during optimization: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    console.error('❌ Failed to load hybrid algorithm, falling back to A*:', error);
+    
+    // Fallback to old A* method (but it won't work properly)
+    const costConfig: RouteConfig = {
+      ...config,
+      optimizeForCost: true
+    };
+    return await optimizeRoute(flights, costConfig);
   }
 }; 

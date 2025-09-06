@@ -1,10 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RouteConfig, Results } from '../lib/types';
 import { queryKeys } from '../lib/queryClient';
-import { optimizeRoute as apiOptimizeRoute, getErrorMessage } from '../lib/apiService';
+import { optimizeRoute as apiOptimizeRoute, hybridOptimizeRoute as apiHybridOptimizeRoute, getErrorMessage } from '../lib/apiService';
+
+// Validate route configuration
+const validateConfig = (config: RouteConfig): boolean => {
+  return !!(
+    config?.startDate &&
+    config?.startTime &&
+    config?.endDate &&
+    config?.endTime &&
+    config?.startAirports &&
+    config?.endAirports &&
+    config?.minConnectionTime !== undefined &&
+    config?.domesticOnly !== undefined
+  );
+};
 
 // Create a hash from the route config for consistent caching
 const createConfigHash = (config: RouteConfig): string => {
+  if (!validateConfig(config)) {
+    throw new Error('Invalid config provided to createConfigHash');
+  }
+  
   const normalized = {
     ...config,
     startAirports: config.startAirports.split(',').map(s => s.trim()).sort().join(','),
@@ -16,28 +34,44 @@ const createConfigHash = (config: RouteConfig): string => {
   return JSON.stringify(normalized);
 };
 
-// Optimization API call using the new apiService
+// Optimization API call using hybrid algorithm by default, with fallback to A*
 const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
   if (process.env.NODE_ENV === 'development') {
-    console.log('🌐 Making API call to /api/optimize with config:', config);
+    console.log('🌐 Making API call to hybrid optimization with config:', config);
   }
   
   try {
-    const result = await apiOptimizeRoute(config);
+    // Try hybrid optimization first
+    const result = await apiHybridOptimizeRoute(config);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ API call successful, result:', result);
+      console.log('✅ Hybrid optimization successful, result:', result);
     }
     
     return result;
-  } catch (error) {
-    // Log technical details in development only
+  } catch (hybridError) {
     if (process.env.NODE_ENV === 'development') {
-      console.error('❌ fetchOptimization error:', error);
+      console.warn('⚠️ Hybrid optimization failed, falling back to A*:', hybridError);
     }
     
-    // Re-throw with user-friendly message - the hook will handle displaying it
-    throw new Error(getErrorMessage(error));
+    try {
+      // Fallback to original A* optimization
+      const result = await apiOptimizeRoute(config);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ A* fallback successful, result:', result);
+      }
+      
+      return result;
+    } catch (astarError) {
+      // Log technical details in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Both optimizations failed:', { hybridError, astarError });
+      }
+      
+      // Re-throw with user-friendly message - the hook will handle displaying it
+      throw new Error(getErrorMessage(astarError));
+    }
   }
 };
 
@@ -59,7 +93,7 @@ export const useOptimization = (config: RouteConfig | null) => {
       }
       return fetchOptimization(config!);
     },
-    enabled: !!config, // Only run when config is provided
+    enabled: !!(config && validateConfig(config)), // Only run when config is provided and valid
     staleTime: 10 * 60 * 1000, // 10 minutes - optimization results are stable
     gcTime: 60 * 60 * 1000, // 1 hour - keep optimization results longer
     retry: 2,

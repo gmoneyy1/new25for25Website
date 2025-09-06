@@ -45,7 +45,7 @@ export const LARGE_AIRPORT_CONFIG: OptimizationConfig = {
 };
 
 // Current active configuration
-export const ACTIVE_CONFIG: OptimizationConfig = MODERATE_CONFIG;
+export const ACTIVE_CONFIG: OptimizationConfig = LARGE_AIRPORT_CONFIG;
 
 /**
  * Get optimization configuration

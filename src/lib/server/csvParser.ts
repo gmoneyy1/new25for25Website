@@ -1,10 +1,11 @@
 import { Flight } from '../types';
+import { calculateAirportDistance } from '../distanceUtils';
 
 // Define the reliable data ranges
 const AUGUST_DATA_START = new Date('2025-08-01T00:00:00');
 const AUGUST_DATA_END = new Date('2025-12-31T23:59:59');
 const SEPTEMBER_DATA_START = new Date('2025-09-01T00:00:00');
-const SEPTEMBER_DATA_END = new Date('2025-09-15T23:59:59');
+const SEPTEMBER_DATA_END = new Date('2025-09-30T23:59:59');
 
 /**
  * Check if a flight is within the August data range
@@ -37,8 +38,8 @@ const isFlightInSeptemberRange = (flight: Flight): boolean => {
     const month = depTime.getMonth() + 1; // getMonth() returns 0-based, so add 1
     const day = depTime.getDate();
     
-    // Check if date is within September 1-15, 2025
-    return year === 2025 && month === 9 && day >= 1 && day <= 15;
+    // Check if date is within September 1-30, 2025
+    return year === 2025 && month === 9 && day >= 1 && day <= 30;
   } catch {
     return false;
   }
@@ -234,7 +235,8 @@ const parseSeptemberData = (csvText: string): Flight[] => {
         'Elapsed Minutes': duration,
         'Price': price,
         'SearchURL': searchURL,
-        'Route Type': 'OK'
+        'Route Type': 'OK',
+        'Distance (MI)': calculateAirportDistance(origin, destination)
       };
       
       // Handle flights that arrive the next day
@@ -243,11 +245,28 @@ const parseSeptemberData = (csvText: string): Flight[] => {
       const arrHour = parseInt(arr24Hour.split(':')[0]);
       
       if (arrHour < depHour - 6) {
-        // Calculate next day date
-        const nextDay = new Date(isoDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        const nextDayStr = nextDay.toISOString().split('T')[0];
-        flight['Arrival Datetime'] = `${nextDayStr}T${arr24Hour}:00`;
+        try {
+          // Calculate next day date with proper validation
+          const currentDate = new Date(isoDate);
+          if (isNaN(currentDate.getTime())) {
+            throw new Error(`Invalid date: ${isoDate}`);
+          }
+          
+          const nextDay = new Date(currentDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          
+          // Validate the calculated next day
+          if (isNaN(nextDay.getTime())) {
+            throw new Error(`Invalid next day calculation for date: ${isoDate}`);
+          }
+          
+          const nextDayStr = nextDay.toISOString().split('T')[0];
+          flight['Arrival Datetime'] = `${nextDayStr}T${arr24Hour}:00`;
+        } catch (error) {
+          console.warn(`Failed to calculate next day for flight ${flightNumber}: ${error}`);
+          // Fallback: keep original date but log the issue
+          flight['Arrival Datetime'] = `${isoDate}T${arr24Hour}:00`;
+        }
       }
       
       console.log(`✅ Entry ${i}: Created flight object:`, {
@@ -358,8 +377,8 @@ export const validateFlightData = (flights: Flight[]): boolean => {
 
   // Add format-specific required fields
   if (isSeptemberData) {
-    // September data: Price and SearchURL are required
-    requiredFields.push('Price', 'SearchURL');
+    // September data: Price, SearchURL, and Distance (MI) are required
+    requiredFields.push('Price', 'SearchURL', 'Distance (MI)');
   } else {
     // August data: Equipment and Distance (MI) are required
     requiredFields.push('Equipment', 'Distance (MI)');

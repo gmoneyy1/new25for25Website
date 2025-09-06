@@ -46,10 +46,11 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
 };
 
 /**
- * Airport coordinates for major US airports (simplified)
- * This is a basic mapping - in production you'd want a complete database
+ * Airport coordinates for major US and international airports
+ * Comprehensive mapping for September dataset coverage
  */
 const AIRPORT_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  // Major US airports
   'JFK': { lat: 40.6413, lon: -73.7781 },
   'LAX': { lat: 33.9416, lon: -118.4085 },
   'ORD': { lat: 41.9786, lon: -87.9048 },
@@ -91,7 +92,60 @@ const AIRPORT_COORDINATES: Record<string, { lat: number; lon: number }> = {
   'SJU': { lat: 18.4394, lon: -66.0018 },
   'PUJ': { lat: 18.5601, lon: -68.3635 },
   'MDE': { lat: 6.1649, lon: -75.4231 },
-  'EDI': { lat: 55.9500, lon: -3.3725 }
+  'EDI': { lat: 55.9500, lon: -3.3725 },
+  
+  // Additional airports for September dataset coverage
+  'ABQ': { lat: 35.0402, lon: -106.6091 }, // Albuquerque
+  'ALB': { lat: 42.7483, lon: -73.8017 }, // Albany
+  'AMS': { lat: 52.3105, lon: 4.7683 }, // Amsterdam
+  'ANU': { lat: 17.1367, lon: -61.7927 }, // Antigua
+  'AUA': { lat: 12.5014, lon: -70.0152 }, // Aruba
+  'AVL': { lat: 35.4362, lon: -82.5418 }, // Asheville
+  'BDA': { lat: 32.3640, lon: -64.6786 }, // Bermuda
+  'BDL': { lat: 41.9389, lon: -72.6832 }, // Hartford
+  'BGI': { lat: 13.0746, lon: -59.4925 }, // Barbados
+  'BON': { lat: 12.1310, lon: -68.2685 }, // Bonaire
+  'BQN': { lat: 18.4949, lon: -67.1294 }, // Aguadilla
+  'BUF': { lat: 42.9405, lon: -78.7322 }, // Buffalo
+  'BUR': { lat: 34.1963, lon: -118.3525 }, // Burbank
+  'BZE': { lat: 17.5395, lon: -88.3082 }, // Belize City
+  'BZN': { lat: 45.7775, lon: -111.1603 }, // Bozeman
+  'CDG': { lat: 49.0097, lon: 2.5479 }, // Paris Charles de Gaulle
+  'CHS': { lat: 32.8986, lon: -80.0405 }, // Charleston
+  'CLE': { lat: 41.4117, lon: -81.8498 }, // Cleveland
+  'CTG': { lat: 10.4424, lon: -75.5130 }, // Cartagena
+  'CUN': { lat: 21.0365, lon: -86.8771 }, // Cancun
+  'CUR': { lat: 12.1889, lon: -68.9598 }, // Curacao
+  'DUB': { lat: 53.4213, lon: -6.2701 }, // Dublin
+  'GEO': { lat: 6.4989, lon: -58.2541 }, // Georgetown
+  'GND': { lat: 12.0042, lon: -61.7868 }, // Grenada
+  'GUA': { lat: 14.5833, lon: -90.5275 }, // Guatemala City
+  'GYE': { lat: -2.1574, lon: -79.8835 }, // Guayaquil
+  'HYA': { lat: 41.6693, lon: -70.2803 }, // Hyannis
+  'ILM': { lat: 34.2706, lon: -77.9026 }, // Wilmington
+  'ISP': { lat: 40.7952, lon: -73.1002 }, // Islip
+  'JAX': { lat: 30.4941, lon: -81.6879 }, // Jacksonville
+  'KIN': { lat: 17.9356, lon: -76.7875 }, // Kingston
+  'LIR': { lat: 10.5933, lon: -85.5444 }, // Liberia
+  'MAD': { lat: 40.4983, lon: -3.5676 }, // Madrid
+  'MBJ': { lat: 18.5037, lon: -77.9134 }, // Montego Bay
+  'NAS': { lat: 25.0389, lon: -77.4662 }, // Nassau
+  'PBI': { lat: 26.6832, lon: -80.0956 }, // West Palm Beach
+  'PLS': { lat: 21.7736, lon: -72.2659 }, // Providenciales
+  'POP': { lat: 19.7579, lon: -70.5700 }, // Puerto Plata
+  'POS': { lat: 10.5954, lon: -61.3372 }, // Port of Spain
+  'PSE': { lat: 18.0083, lon: -66.5630 }, // Ponce
+  'RSW': { lat: 26.5362, lon: -81.7552 }, // Fort Myers
+  'SDQ': { lat: 18.4297, lon: -69.6689 }, // Santo Domingo
+  'SKB': { lat: 17.3112, lon: -62.7187 }, // St. Kitts
+  'STI': { lat: 19.4061, lon: -70.6047 }, // Santiago
+  'STT': { lat: 18.3373, lon: -64.9734 }, // St. Thomas
+  'STX': { lat: 17.7019, lon: -64.7986 }, // St. Croix
+  'SVD': { lat: 13.1443, lon: -61.2106 }, // St. Vincent
+  'SXM': { lat: 18.0409, lon: -63.1089 }, // St. Maarten
+  'TPA': { lat: 27.9756, lon: -82.5333 }, // Tampa
+  'UVF': { lat: 13.7306, lon: -61.1196 }, // St. Lucia
+  'YVR': { lat: 49.1967, lon: -123.1815 } // Vancouver
 };
 
 /**

@@ -106,10 +106,8 @@ export const validateRouteConfig = (config: RouteConfig): FormErrors => {
   }
 
   // Validate minimum connection time
-  if (config.minConnectionTime < 30) {
-    errors.minConnectionTime = 'Minimum connection time must be at least 30 minutes';
-  } else if (config.minConnectionTime > 480) {
-    errors.minConnectionTime = 'Minimum connection time cannot exceed 8 hours';
+  if (config.minConnectionTime <= 0) {
+    errors.minConnectionTime = 'Minimum connection time must be at least 0 minutes';
   }
 
   return errors;

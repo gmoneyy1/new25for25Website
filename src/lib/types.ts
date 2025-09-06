@@ -7,6 +7,7 @@ export interface Flight {
   'Elapsed Minutes': number;
   Equipment?: string;
   'Distance (MI)'?: number; // Made optional - now in miles
+  'Distance (KM)'?: number; // Added for hybrid optimization compatibility
   // September data fields
   Price?: string;
   Stops?: string;
@@ -25,6 +26,9 @@ export interface RouteConfig {
   visitedAirports: string;
   minConnectionTime: number;
   domesticOnly: boolean;
+  maxBudget?: number;
+  optimizeForCost?: boolean;
+  targetAirportCount?: number;
 }
 
 export interface SearchState {
@@ -34,6 +38,7 @@ export interface SearchState {
   visitedSet: Set<string>;
   arrivalTime: Date;
   totalDuration: number;
+  totalCost?: number;
 }
 
 export interface OptimizationResults {
@@ -42,11 +47,57 @@ export interface OptimizationResults {
   newAirportsVisited: string[];
   totalDistance: number;
   totalDuration: number;
-  iterations: number;
   totalPrice?: number;
+  executionTime?: number;
+  iterations?: number;
   // Dataset information
   datasetUsed?: 'august' | 'september';
   hasPricing?: boolean;
+  // Optimization mode
+  optimizationMode?: 'airports' | 'cost';
+  // Hybrid optimization results
+  hybridResults?: HybridOptimizationResults;
+  // A* optimization results
+  aStarResults?: AStarOptimizationResults;
+}
+
+export interface HybridOptimizationResults {
+  standardRoute: {
+    path: Flight[];
+    cost: number;
+    airportCount: number;
+    duration: number;
+    distance: number;
+    isValid: boolean; // Route validation status
+    isComplete: boolean; // Route completeness (starts and ends at same airport)
+  };
+  costOptimizedRoute: {
+    path: Flight[];
+    cost: number;
+    airportCount: number;
+    duration: number;
+    distance: number;
+    savings: number;
+    isValid: boolean; // Route validation status
+    isComplete: boolean; // Route completeness (starts and ends at same airport)
+  };
+  alternatives: Array<{
+    path: Flight[];
+    cost: number;
+    duration: number;
+    distance: number;
+    isValid: boolean; // Route validation status
+    isComplete: boolean; // Route completeness (starts and ends at same airport)
+  }>;
+}
+
+export interface AStarOptimizationResults {
+  iterations: number;
+  fScore: number;
+  gScore: number;
+  heuristic: number;
+  routesFound: number;
+  earlyTermination: boolean;
 }
 
 export interface OptimizationError {
@@ -143,4 +194,8 @@ export interface OptimizationCacheKey {
   endAirports: string;
   visitedAirports: string;
   minConnectionTime: number;
+  domesticOnly: boolean;
+  maxBudget?: number;
+  optimizeForCost?: boolean;
+  targetAirportCount?: number;
 } 

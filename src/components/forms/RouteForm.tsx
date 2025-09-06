@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Search, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, Search, AlertCircle, ChevronDown, MapPin } from 'lucide-react';
 import { RouteConfig } from '../../lib/types';
 import { FormErrors } from '../../lib/formValidation';
 
@@ -20,9 +20,61 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   hasData,
   errors = {}
 }) => {
+  const [showStartAirportDropdown, setShowStartAirportDropdown] = useState(false);
+  const [showEndAirportDropdown, setShowEndAirportDropdown] = useState(false);
+  const startDropdownRef = useRef<HTMLDivElement>(null);
+  const endDropdownRef = useRef<HTMLDivElement>(null);
+
+  const airportPresets = {
+    nyc: {
+      name: 'NYC Area',
+      airports: 'EWR,JFK,HPN,LGA'
+    },
+    boston: {
+      name: 'Boston Area',
+      airports: 'BOS,MHT,PVD'
+    },
+    la: {
+      name: 'LA Area',
+      airports: 'LAX,BUR,ONT,SNA'
+    },
+    florida: {
+      name: 'Florida',
+      airports: 'MIA,FLL,TPA,MCO,JAX'
+    }
+  };
+
   const handleInputChange = (field: keyof RouteConfig, value: string | number | boolean) => {
     onConfigChange({ ...config, [field]: value });
   };
+
+  const handleAirportPresetClick = (presetKey: keyof typeof airportPresets, isStartAirport: boolean) => {
+    const airports = airportPresets[presetKey].airports;
+    if (isStartAirport) {
+      onConfigChange({ ...config, startAirports: airports });
+      setShowStartAirportDropdown(false);
+    } else {
+      onConfigChange({ ...config, endAirports: airports });
+      setShowEndAirportDropdown(false);
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (startDropdownRef.current && !startDropdownRef.current.contains(event.target as Node)) {
+        setShowStartAirportDropdown(false);
+      }
+      if (endDropdownRef.current && !endDropdownRef.current.contains(event.target as Node)) {
+        setShowEndAirportDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const validateForm = (): boolean => {
     const hasErrors = Object.values(errors).some(error => error && error.length > 0);
@@ -56,7 +108,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <strong>Available Date Range:</strong> August 1, 2025 - December 31, 2025
             </p>
             <p className="text-xs text-blue-600 mt-1">
-              Flight data is available for this period. Please select dates within this range.
+              Pricing data available for September.
             </p>
           </div>
           
@@ -161,15 +213,46 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Start Airports (comma-separated) <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={config.startAirports}
-                onChange={(e) => handleInputChange('startAirports', e.target.value)}
-                placeholder="e.g., EWR, JFK, HPN, LGA"
-                className={`w-full px-3 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm ${
-                  errors.startAirports ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
+              <div className="relative" ref={startDropdownRef}>
+                <input
+                  type="text"
+                  value={config.startAirports}
+                  onChange={(e) => handleInputChange('startAirports', e.target.value)}
+                  placeholder="e.g., EWR, JFK, HPN, LGA"
+                  className={`w-full px-3 py-3 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm ${
+                    errors.startAirports ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowStartAirportDropdown(!showStartAirportDropdown)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+                
+                {/* Airport Presets Dropdown */}
+                {showStartAirportDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                    <div className="p-2">
+                      <div className="flex items-center mb-2 text-xs font-medium text-gray-600">
+                        <MapPin className="h-3 w-3 mr-1" />
+                        Airport Presets
+                      </div>
+                      {Object.entries(airportPresets).map(([key, preset]) => (
+                        <button
+                          key={key}
+                          onClick={() => handleAirportPresetClick(key as keyof typeof airportPresets, true)}
+                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                        >
+                          <div className="font-medium text-gray-900">{preset.name}</div>
+                          <div className="text-xs text-gray-600">{preset.airports}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               {errors.startAirports ? (
                 <p className="text-red-500 text-xs mt-1 flex items-center">
                   <AlertCircle size={12} className="mr-1" />
@@ -186,15 +269,46 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 End Airports (comma-separated) <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={config.endAirports}
-                onChange={(e) => handleInputChange('endAirports', e.target.value)}
-                placeholder="e.g., EWR, JFK, HPN, LGA"
-                className={`w-full px-3 py-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm ${
-                  errors.endAirports ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
+              <div className="relative" ref={endDropdownRef}>
+                <input
+                  type="text"
+                  value={config.endAirports}
+                  onChange={(e) => handleInputChange('endAirports', e.target.value)}
+                  placeholder="e.g., EWR, JFK, HPN, LGA"
+                  className={`w-full px-3 py-3 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm ${
+                    errors.endAirports ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEndAirportDropdown(!showEndAirportDropdown)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+                
+                {/* Airport Presets Dropdown */}
+                {showEndAirportDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                    <div className="p-2">
+                      <div className="flex items-center mb-2 text-xs font-medium text-gray-600">
+                        <MapPin className="h-3 w-3 mr-1" />
+                        Airport Presets
+                      </div>
+                      {Object.entries(airportPresets).map(([key, preset]) => (
+                        <button
+                          key={key}
+                          onClick={() => handleAirportPresetClick(key as keyof typeof airportPresets, false)}
+                          className="w-full text-left p-2 hover:bg-gray-50 rounded text-sm"
+                        >
+                          <div className="font-medium text-gray-900">{preset.name}</div>
+                          <div className="text-xs text-gray-600">{preset.airports}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               {errors.endAirports ? (
                 <p className="text-red-500 text-xs mt-1 flex items-center">
                   <AlertCircle size={12} className="mr-1" />
@@ -210,7 +324,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               {config.endAirports && config.endAirports.split(',').length > 30 && (
                 <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
                   <p className="text-xs text-green-800">
-                    <strong>Auto-optimized:</strong> You've entered {config.endAirports.split(',').length} end airports. 
+                    <strong>Auto-optimized:</strong> You&apos;ve entered {config.endAirports.split(',').length} end airports. 
                     The system will automatically use optimized settings for large airport sets to find better routes.
                   </p>
                 </div>
@@ -280,7 +394,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             </label>
             <input
               type="number"
-              min="30"
+              min="1"
               max="480"
               value={config.minConnectionTime}
               onChange={(e) => handleInputChange('minConnectionTime', parseInt(e.target.value) || 60)}
@@ -295,7 +409,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               </p>
             )}
             <p className="text-xs text-gray-500 mt-2">
-              Recommended: 60-120 minutes for domestic flights
+              Recommended: 60-120 minutes for domestic flights, but you can set lower values if needed
             </p>
           </div>
         </div>

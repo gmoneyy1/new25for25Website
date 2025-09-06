@@ -114,7 +114,7 @@ export const OptimizationSettingsForm: React.FC<OptimizationSettingsFormProps> =
       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
         <p className="text-xs text-green-800">
           <strong>Auto-optimization:</strong> When you input 30+ end airports, the system automatically 
-          switches to the "Large Airport Sets" configuration for better performance.
+          switches to the &quot;Large Airport Sets&quot; configuration for better performance.
         </p>
       </div>
     </div>
