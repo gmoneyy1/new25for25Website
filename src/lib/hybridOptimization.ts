@@ -87,13 +87,14 @@ function calculateUniqueAirports(path: Flight[]): Set<string> {
 
 /**
  * Calculate the number of NEW airports visited (excluding already visited ones)
+ * This is used for scoring routes - only NEW airports contribute to the score
  */
-function calculateNewAirportsCount(path: Flight[], visitedAirports: Set<string>): number {
+function calculateNewAirportsCount(path: Flight[], alreadyVisitedAirports: Set<string>): number {
   const uniqueAirports = calculateUniqueAirports(path);
   const newAirports = new Set<string>();
   
   uniqueAirports.forEach(airport => {
-    if (!visitedAirports.has(airport)) {
+    if (!alreadyVisitedAirports.has(airport)) {
       newAirports.add(airport);
     }
   });
@@ -274,13 +275,14 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
   const endDateTime = parseDateTime(config.endDate, config.endTime);
   
   // A* Priority function: f(n) = g(n) + h(n)
-  // g(n) = actual cost (airports visited), h(n) = heuristic estimate
+  // g(n) = actual cost (NEW airports visited), h(n) = heuristic estimate
   const calculateAStarPriority = (state: RouteState, flight: Flight): number => {
-    const airportCount = state.visitedAirports.size;
+    // FIXED: Count only NEW airports visited (exclude already visited ones)
+    const newAirportCount = calculateNewAirportsCount([...state.path, flight], visitedAirports);
     const cost = state.totalCost + (parseFloat(flight.Price || '0') || 0);
     
-    // g(n): Actual airports visited (higher is better)
-    const actualCost = airportCount * 1000;
+    // g(n): NEW airports visited (higher is better) - this is what really matters for scoring
+    const actualCost = newAirportCount * 1000;
     
     // h(n): Heuristic estimate of remaining airports
     const heuristic = calculateHeuristic(state, flightsByOrigin, endDateTime, minConnectionTime);
@@ -289,8 +291,8 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
     let priority = actualCost + heuristic * 100;
     
     if (shouldOptimizeForCost) {
-      // For cost optimization, add cost penalty only when we have enough airports
-      if (shouldFindTarget && airportCount >= targetAirportCount) {
+      // For cost optimization, add cost penalty only when we have enough NEW airports
+      if (shouldFindTarget && newAirportCount >= targetAirportCount) {
         priority -= cost / 100; // Small cost penalty
       }
     }
@@ -302,7 +304,7 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
   Array.from(startAirports).forEach(airport => {
     const initialState: RouteState = {
       airport,
-      visitedAirports: new Set<string>(),
+      visitedAirports: new Set([...visitedAirports, airport]), // FIXED: Initialize with already visited airports + start airport
       path: [],
       arrivalTime: startDateTime,
       totalDuration: 0,
@@ -371,11 +373,12 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
     // Update best route to this state
     bestRoutes.set(stateKey, current);
     
-    // Track improvement for early termination
-    if (current.visitedAirports.size > bestAirportCount) {
-      bestAirportCount = current.visitedAirports.size;
+    // Track improvement for early termination - FIXED: Use NEW airports count
+    const currentNewAirports = calculateNewAirportsCount(current.path, visitedAirports);
+    if (currentNewAirports > bestAirportCount) {
+      bestAirportCount = currentNewAirports;
       noImprovementCount = 0;
-      console.log(`🎯 New best: ${bestAirportCount} airports at iteration ${iterations}`);
+      console.log(`🎯 New best: ${bestAirportCount} NEW airports at iteration ${iterations} (total: ${current.visitedAirports.size})`);
     } else {
       noImprovementCount++;
     }
@@ -428,7 +431,7 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
       // A* pruning: avoid revisiting airports (except for completion)
       if (current.path.length > 0) {
         if (current.visitedAirports.has(flight.Destination) && !endAirports.has(flight.Destination)) {
-          continue;
+          continue; // Skip flights to already visited airports (except end airports)
         }
         
         // Allow returning to end airports for completion
@@ -441,9 +444,8 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
       }
       
       const newVisited = new Set(current.visitedAirports);
-      if (!newVisited.has(flight.Destination)) {
-        newVisited.add(flight.Destination);
-      }
+      // FIXED: Always add destination to visited set (whether new or already visited)
+      newVisited.add(flight.Destination);
 
       const newDistance = current.totalDistance + (flight['Distance (MI)'] || flight['Distance (KM)'] || 0);
       const newDuration = current.totalDuration + (flight['Elapsed Minutes'] || 0);
@@ -645,6 +647,7 @@ function findCheapestAlternatives(
       if (attempts >= maxAttempts) break;
       
       // Try to build a route starting from this airport
+      const { visitedAirports: configVisitedAirports } = parseAirportSets(config); // FIXED: Get already visited airports
       const route = buildAlternativeRoute(
         startAirport,
         targetAirportCount,
@@ -654,7 +657,8 @@ function findCheapestAlternatives(
         minConnectionTime,
         allPossibleAirports,
         endAirports,
-        attempts + (startAirportIndex * 1000) + (attemptFromAirport * 100) // More diverse seed
+        attempts + (startAirportIndex * 1000) + (attemptFromAirport * 100), // More diverse seed
+        configVisitedAirports // FIXED: Pass already visited airports
       );
       
       if (route && route.path.length > 0) {
@@ -775,10 +779,11 @@ function buildAlternativeRoute(
   minConnectionTime: number,
   allPossibleAirports: Set<string>,
   endAirports: Set<string>,
-  attemptNumber: number = 0 // Add attempt number for randomization
+  attemptNumber: number = 0, // Add attempt number for randomization
+  alreadyVisitedAirports: Set<string> = new Set() // FIXED: Add parameter for already visited airports
 ): { path: Flight[]; visitedAirports: Set<string> } | null {
   const path: Flight[] = [];
-  const visitedAirports = new Set<string>();
+  const visitedAirports = new Set([...alreadyVisitedAirports]); // FIXED: Initialize with already visited airports
   let currentAirport = startAirport;
   let currentTime = startDateTime;
   

@@ -45,24 +45,48 @@ export const flightsToCsv = (flights: Flight[]): string => {
     'Destination',
     'Departure Datetime',
     'Arrival Datetime',
-    'Elapsed Minutes',
-    'Equipment',
-    'Distance (KM)',
+    'Flight Duration',
     'Distance (Miles)'
   ];
 
   // Create CSV rows
-  const rows = flights.map(flight => [
-    flight['Flight Number'],
-    flight.Origin,
-    flight.Destination,
-    flight['Departure Datetime'],
-    flight['Arrival Datetime'],
-    flight['Elapsed Minutes'],
-    flight.Equipment,
-    flight['Distance (KM)'],
-    Math.round((flight['Distance (KM)'] || 0) * 0.621371)
-  ]);
+  const rows = flights.map(flight => {
+    // Format datetime strings to remove the 'T' and make them more readable
+    const formatDateTime = (dateTimeStr: string) => {
+      try {
+        const date = new Date(dateTimeStr);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      } catch {
+        return dateTimeStr;
+      }
+    };
+
+    // Calculate distance in miles
+    const distanceKM = flight['Distance (KM)'];
+    const distanceMI = flight['Distance (MI)'];
+    let distanceInMiles = 0;
+    
+    if (distanceKM && typeof distanceKM === 'number' && distanceKM > 0) {
+      distanceInMiles = Math.round(distanceKM * 0.621371);
+    } else if (distanceMI && typeof distanceMI === 'number' && distanceMI > 0) {
+      distanceInMiles = Math.round(distanceMI);
+    }
+
+    return [
+      flight['Flight Number'],
+      flight.Origin,
+      flight.Destination,
+      formatDateTime(flight['Departure Datetime']),
+      formatDateTime(flight['Arrival Datetime']),
+      flight['Elapsed Minutes'],
+      distanceInMiles
+    ];
+  });
 
   // Combine headers and rows
   const csvContent = [headers, ...rows]
@@ -85,6 +109,28 @@ export const downloadFlightsAsCsv = (flights: Flight[], filename?: string): void
     return;
   }
 
+  // Generate filename based on route if not provided
+  let generatedFilename = filename;
+  if (!generatedFilename && flights.length > 0) {
+    const startAirport = flights[0].Origin;
+    const endAirport = flights[flights.length - 1].Destination;
+    
+    // Get travel dates from first and last flights
+    const startDate = new Date(flights[0]['Departure Datetime']);
+    const endDate = new Date(flights[flights.length - 1]['Arrival Datetime']);
+    
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    
+    // If it's the same date, show just one date
+    if (startDate.toDateString() === endDate.toDateString()) {
+      generatedFilename = `jetblue_route_${startAirport}_to_${endAirport}_${formatDate(startDate)}.csv`;
+    } else {
+      generatedFilename = `jetblue_route_${startAirport}_to_${endAirport}_${formatDate(startDate)}_to_${formatDate(endDate)}.csv`;
+    }
+  }
+
   // Create blob and download
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -92,7 +138,7 @@ export const downloadFlightsAsCsv = (flights: Flight[], filename?: string): void
   if (link.download !== undefined) {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', filename || `jetblue_route_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', generatedFilename || `jetblue_route_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -113,9 +159,7 @@ export const validateFlightData = (flights: Flight[]): boolean => {
     'Destination',
     'Departure Datetime',
     'Arrival Datetime',
-    'Elapsed Minutes',
-    'Equipment',
-    'Distance (KM)'
+    'Elapsed Minutes'
   ];
 
   return flights.every(flight => 

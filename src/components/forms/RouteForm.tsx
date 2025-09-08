@@ -22,6 +22,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
 }) => {
   const [showStartAirportDropdown, setShowStartAirportDropdown] = useState(false);
   const [showEndAirportDropdown, setShowEndAirportDropdown] = useState(false);
+  const [hasAttemptedValidation, setHasAttemptedValidation] = useState(false);
   const startDropdownRef = useRef<HTMLDivElement>(null);
   const endDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,21 @@ export const RouteForm: React.FC<RouteFormProps> = ({
     }
   };
 
+  // Function to convert airport codes to uppercase
+  const convertAirportCodesToUppercase = (airportString: string): string => {
+    return airportString
+      .split(',')
+      .map(code => code.trim().toUpperCase())
+      .join(',');
+  };
+
   const handleInputChange = (field: keyof RouteConfig, value: string | number | boolean) => {
+    // Convert airport codes to uppercase for start and end airports
+    if (field === 'startAirports' || field === 'endAirports' || field === 'visitedAirports') {
+      if (typeof value === 'string') {
+        value = convertAirportCodesToUppercase(value);
+      }
+    }
     onConfigChange({ ...config, [field]: value });
   };
 
@@ -76,6 +91,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({
     };
   }, []);
 
+  // Reset validation attempt state when form becomes valid
+  useEffect(() => {
+    if (hasAttemptedValidation && validateForm()) {
+      setHasAttemptedValidation(false);
+    }
+  }, [hasAttemptedValidation, errors]);
+
   const validateForm = (): boolean => {
     const hasErrors = Object.values(errors).some(error => error && error.length > 0);
     console.log('🔍 validateForm called, errors:', errors);
@@ -91,11 +113,13 @@ export const RouteForm: React.FC<RouteFormProps> = ({
         Route Configuration
       </h2>
       
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-sm text-blue-800">
-          <span className="text-red-500 font-medium">*</span> Required fields must be filled before optimization can run.
-        </p>
-      </div>
+      {hasAttemptedValidation && Object.keys(errors).some(key => errors[key]) && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-800">
+            <span className="text-red-500 font-medium">*</span> Required fields must be filled before optimization can run.
+          </p>
+        </div>
+      )}
       
       <div className="space-y-4 sm:space-y-6">
         {/* Date and Time Configuration */}
@@ -442,6 +466,10 @@ export const RouteForm: React.FC<RouteFormProps> = ({
             console.log('✅ Form valid:', validateForm());
             console.log('📊 Has data:', hasData);
             console.log('⏳ Is loading:', isLoading);
+            
+            // Set validation attempt state when user tries to optimize
+            setHasAttemptedValidation(true);
+            
             onOptimize();
           }}
           disabled={!hasData || isLoading || !validateForm()}
