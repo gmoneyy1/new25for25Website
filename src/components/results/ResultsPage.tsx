@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, TrendingUp, BarChart3, Share, ChevronDown, ChevronUp, Zap, AlertCircle } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, DollarSign, Clock, MapPin, Plane, TrendingUp, BarChart3, ChevronDown, ChevronUp, Zap, AlertCircle } from 'lucide-react';
 import { Results, FlightWithPricing, RoutePricingData, PricingComparison, Flight } from '../../lib/types';
 import { useRoutePricing, usePricingComparison } from '../../hooks/usePricing';
 import { formatPrice } from '../../lib/pricingService';
@@ -199,10 +199,6 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors border border-gray-200 rounded-md min-h-[40px]">
-            <Share className="h-4 w-4 mr-1" />
-            <span className="hidden xs:inline">Share</span>
-          </button>
           <button 
             onClick={() => {
               downloadFlightsAsCsv(path);
