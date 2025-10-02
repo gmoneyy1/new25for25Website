@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "npm run test:comprehensive",
     "test:comprehensive": "tsx scripts/test-optimization-comprehensive.ts",
     "test:frontend": "tsx scripts/test-frontend-integration.ts"
   },

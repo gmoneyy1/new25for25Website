@@ -44,7 +44,8 @@ const testConfig: RouteConfig = {
   startAirports: 'JFK',
   endAirports: 'JFK',
   visitedAirports: 'LAX,BOS',
-  minConnectionTime: 60
+  minConnectionTime: 60,
+  domesticOnly: false
 };
 
 // Test the multi-objective scoring function

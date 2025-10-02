@@ -38,7 +38,17 @@ export const cacheUtils = {
   // Clear specific optimization cache
   clearOptimizationCache: () => {
     queryClient.removeQueries({ 
-      queryKey: queryKeys.optimization({}),
+      queryKey: queryKeys.optimization({
+        startDate: '',
+        startTime: '',
+        endDate: '',
+        endTime: '',
+        startAirports: '',
+        endAirports: '',
+        visitedAirports: '',
+        minConnectionTime: 60,
+        domesticOnly: false
+      }),
       exact: false 
     });
   },

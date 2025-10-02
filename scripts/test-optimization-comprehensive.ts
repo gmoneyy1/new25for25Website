@@ -36,7 +36,8 @@ async function testOptimizationSystem() {
       startAirports: 'JFK,LGA,EWR',
       endAirports: 'LAX,SFO,SAN',
       visitedAirports: 'BED', // Already visited Bedford
-      minConnectionTime: 90
+      minConnectionTime: 90,
+      domesticOnly: false
     };
 
     const result1 = await optimizeRoute(flights, config1);
@@ -71,7 +72,8 @@ async function testOptimizationSystem() {
       startAirports: 'BOS',
       endAirports: 'FLL,MCO,TPA',
       visitedAirports: 'BED,JFK', 
-      minConnectionTime: 60
+      minConnectionTime: 60,
+      domesticOnly: false
     };
 
     const result2 = await optimizeRoute(flights, config2);
@@ -97,7 +99,8 @@ async function testOptimizationSystem() {
       startAirports: 'JFK',
       endAirports: 'BOS,FLL',
       visitedAirports: '',
-      minConnectionTime: 45
+      minConnectionTime: 45,
+      domesticOnly: false
     };
 
     const result3 = await optimizeRoute(flights, config3);
@@ -122,7 +125,8 @@ async function testOptimizationSystem() {
       startAirports: 'XXX', // Invalid airport
       endAirports: 'YYY',   // Invalid airport
       visitedAirports: '',
-      minConnectionTime: 60
+      minConnectionTime: 60,
+      domesticOnly: false
     };
 
     const result4 = await optimizeRoute(flights, config4);
@@ -147,7 +151,8 @@ async function testOptimizationSystem() {
       startAirports: 'JFK,LGA,EWR,BOS',
       endAirports: 'LAX,SFO,SAN,SEA',
       visitedAirports: 'BED',
-      minConnectionTime: 75
+      minConnectionTime: 75,
+      domesticOnly: false
     };
 
     const result5 = await optimizeRoute(flights, config5);
@@ -192,7 +197,8 @@ async function testAPIEndpoint() {
       startAirports: 'JFK,LGA',
       endAirports: 'LAX,SFO',
       visitedAirports: 'BED',
-      minConnectionTime: 90
+      minConnectionTime: 90,
+      domesticOnly: false
     };
 
     const response = await fetch('http://localhost:3000/api/optimize', {
