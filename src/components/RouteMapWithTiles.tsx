@@ -205,54 +205,46 @@ export const RouteMapWithTiles: React.FC<RouteMapProps> = ({ flights, className 
       if (!window.google) {
         const script = document.createElement('script');
         
-        // Try direct environment variable access first (simpler and more reliable for local dev)
-        let apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-        
-        if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
-          // If no direct access, try the secure proxy (for production)
-          try {
-            console.log('🔄 No direct API key, trying secure proxy...');
-            const response = await fetch('/api/maps-proxy', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                action: 'loadScript'
-              })
-            });
-            
-            const config = await response.json();
-            
-            if (config.hasKey && config.scriptUrl) {
-              console.log('✅ Using secure proxy script URL:', config.scriptUrl);
-              script.src = config.scriptUrl;
-              script.async = true;
-              script.defer = true;
-            } else {
-              console.error('❌ Proxy response invalid:', config);
-              throw new Error(`Proxy failed: ${config.error || 'Invalid response'}`);
-            }
-          } catch (error) {
-            console.error('❌ Both direct access and proxy failed:', error);
-            if (mapRef.current) {
-              mapRef.current.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
-                  <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Configuration Error</h3>
-                  <p style="margin-bottom: 10px;">Failed to load Google Maps API.</p>
-                  <p style="font-size: 12px; color: #999;">Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local</p>
-                  <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
-                </div>
-              `;
-            }
-            return;
+        // Always use the secure proxy to prevent API key exposure
+        try {
+          console.log('🔄 Loading Google Maps via secure proxy...');
+          const response = await fetch('/api/maps-proxy', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'loadScript'
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Proxy request failed: ${response.status}`);
           }
-        } else {
-          // Direct access worked - use it
-          console.log('✅ Using direct API key access');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`;
+          
+          const config = await response.json();
+          
+          if (!config.scriptUrl) {
+            throw new Error(`Proxy failed: ${config.error || 'No script URL returned'}`);
+          }
+          
+          console.log('✅ Using secure proxy script URL');
+          script.src = config.scriptUrl;
           script.async = true;
           script.defer = true;
+        } catch (error) {
+          console.error('❌ Failed to load Google Maps via secure proxy:', error);
+          if (mapRef.current) {
+            mapRef.current.innerHTML = `
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #f0f0f0; color: #666; padding: 20px; text-align: center;">
+                <h3 style="color: #d32f2f; margin-bottom: 10px;">Google Maps Configuration Error</h3>
+                <p style="margin-bottom: 10px;">Failed to load Google Maps API via secure proxy.</p>
+                <p style="font-size: 12px; color: #999;">Check GOOGLE_MAPS_API_KEY in server environment variables</p>
+                <p style="font-size: 10px; color: #999; margin-top: 10px;">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+              </div>
+            `;
+          }
+          return;
         }
         
         // Set up global callback with better error handling
