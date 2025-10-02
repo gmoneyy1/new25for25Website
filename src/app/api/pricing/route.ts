@@ -29,6 +29,10 @@ export async function GET(request: NextRequest) {
         Destination: destination,
         'Departure Datetime': departureDate + 'T10:00:00',
         'Arrival Datetime': departureDate + 'T12:00:00',
+        'Elapsed Minutes': 120,
+        'Price': '$99',
+        'Stops': '0',
+        'Distance (MI)': 500
       };
       
       const options = generateMultiplePricingOptions(mockFlight);

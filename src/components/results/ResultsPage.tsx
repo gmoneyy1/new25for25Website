@@ -4,7 +4,7 @@ import { Results, FlightWithPricing, RoutePricingData, PricingComparison, Flight
 import { useRoutePricing, usePricingComparison } from '../../hooks/usePricing';
 import { formatPrice } from '../../lib/pricingService';
 import { kilometersToMiles, calculateAirportDistance } from '../../lib/distanceUtils';
-import { formatDateTime, minutesToHours } from '../../lib/dateUtils';
+import { formatDateTime, minutesToHours, formatFlightDateTime } from '../../lib/dateUtils';
 import { downloadFlightsAsCsv } from '../../lib/csvUtils';
 
 interface ResultsPageProps {
@@ -355,14 +355,18 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
           <div className="mt-2 text-sm text-blue-800">
             <p>
-              <strong>Dataset:</strong> {results.datasetUsed === 'september' ? 'September 2025' : 'August 1 - December 31, 2025'}
+                <strong>Dataset:</strong> {
+                  results.datasetUsed === 'sept-nov' ? 'September 2025' :
+                  results.datasetUsed === 'oct-nov' ? 'October - November 2025' :
+                  'August 1 - December 31, 2025'
+                }
             </p>
             <p>
               <strong>Pricing:</strong> {results.hasPricing ? 'Available with booking links' : 'Not available for this date range'}
             </p>
-            {results.datasetUsed === 'september' && (
+            {(results.datasetUsed === 'sept-nov' || results.datasetUsed === 'oct-nov') && (
               <p className="text-xs text-blue-600 mt-1">
-                💡 September data includes real-time pricing and direct booking links to JetBlue
+                💡 {results.datasetUsed === 'sept-nov' ? 'September' : 'October/November'} data includes real-time pricing and direct booking links to JetBlue
               </p>
             )}
           </div>
@@ -392,14 +396,14 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
                       <div className="flex items-center space-x-1 sm:space-x-2">
                         <span className="font-medium">{flight.Origin}</span>
                         <span className="text-xs sm:text-sm text-gray-500">
-                          {formatDateTime(new Date(flight['Departure Datetime']))}
+                          {formatFlightDateTime(flight['Departure Datetime'])}
                         </span>
                       </div>
                       <span className="text-gray-400 hidden sm:inline">→</span>
                       <div className="flex items-center space-x-1 sm:space-x-2">
                         <span className="font-medium">{flight.Destination}</span>
                         <span className="text-xs sm:text-sm text-gray-500">
-                          {formatDateTime(new Date(flight['Arrival Datetime']))}
+                          {formatFlightDateTime(flight['Arrival Datetime'])}
                         </span>
                       </div>
                     </div>

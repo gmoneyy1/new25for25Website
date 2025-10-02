@@ -38,15 +38,24 @@ export async function POST(request: NextRequest) {
     const septemberEnd = new Date('2025-09-30T23:59:59');
     
     // Determine which dataset to use
+    const octoberStart = new Date('2025-10-01T00:00:00');
+    const octoberEnd = new Date('2025-11-30T23:59:59');
+    
     const useSeptemberData = (startDate >= septemberStart && startDate <= septemberEnd) ||
                             (endDate >= septemberStart && endDate <= septemberEnd);
+    const useOctNovData = (startDate >= octoberStart && startDate <= octoberEnd) ||
+                         (endDate >= octoberStart && endDate <= octoberEnd);
     
     let csvPath: string;
-    if (useSeptemberData) {
-      csvPath = path.join(process.cwd(), 'september_data.csv');
-      console.log('📅 Using September dataset (Sept 1-30) with distances and pricing for hybrid optimization');
+    let datasetUsed: 'august' | 'sept-nov' | 'oct-nov';
+    
+    if (useSeptemberData || useOctNovData) {
+      csvPath = path.join(process.cwd(), 'sept_octnov_combined_dist.csv');
+      datasetUsed = 'sept-nov';
+      console.log('📅 Using Combined September–November dataset with distances and pricing for hybrid optimization');
     } else {
       csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+      datasetUsed = 'august';
       console.log('📅 Using August dataset for hybrid optimization');
     }
     
@@ -98,6 +107,13 @@ export async function POST(request: NextRequest) {
     console.log(`Standard route: ${result.hybridResults?.standardRoute.airportCount} airports, $${result.hybridResults?.standardRoute.cost}`);
     console.log(`Optimized route: ${result.hybridResults?.costOptimizedRoute.airportCount} airports, $${result.hybridResults?.costOptimizedRoute.cost}`);
     console.log(`Savings: $${result.hybridResults?.costOptimizedRoute.savings}`);
+
+    // Add dataset information to the result
+    if ('path' in result) {
+      result.datasetUsed = datasetUsed;
+      result.hasPricing = useSeptemberData || useOctNovData;
+      result.optimizationMode = config.optimizeForCost ? 'cost' : 'airports';
+    }
 
     return NextResponse.json(result);
 

@@ -3,6 +3,70 @@ import { parseDateTime, minutesToMilliseconds } from './dateUtils';
 import { kilometersToMiles } from './distanceUtils';
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ */
+const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
+ * Validate and fix flight times, handling overnight flights properly
+ * Returns validated departure and arrival times, or null if invalid
+ */
+function validateAndFixFlightTimes(flight: Flight): { depTime: Date; arrTime: Date } | null {
+  const depTime = parseDateTimeString(flight['Departure Datetime']);
+  let arrTime = parseDateTimeString(flight['Arrival Datetime']);
+
+  if (!depTime || !arrTime) {
+    return null;
+  }
+
+  // Handle overnight flights BEFORE any other validation
+  if (arrTime.getTime() < depTime.getTime()) {
+    const durationMinutes = flight['Elapsed Minutes'] || 0;
+    if (durationMinutes > 60) {
+      // Valid overnight flight - add one day to arrival time
+      arrTime = new Date(arrTime);
+      arrTime.setDate(arrTime.getDate() + 1);
+    } else {
+      // Invalid flight - arrival before departure with short duration
+      return null;
+    }
+  }
+
+  // Validate flight duration (max 12 hours)
+  const flightDuration = (arrTime.getTime() - depTime.getTime()) / (1000 * 60);
+  if (flightDuration > 12 * 60) {
+    return null;
+  }
+
+  return { depTime, arrTime };
+}
+
+/**
  * Filter flights based on time constraints and validity
  */
 function filterValidFlights(flights: Flight[], config: RouteConfig): Flight[] {
@@ -25,11 +89,11 @@ function filterValidFlights(flights: Flight[], config: RouteConfig): Flight[] {
   ]);
 
   return flights.filter(flight => {
-    const depTime = new Date(flight['Departure Datetime']);
-    const arrTime = new Date(flight['Arrival Datetime']);
-    
-    const isWithinTimeWindow = depTime >= startDateTime && arrTime <= endDateTime;
-    const hasValidDates = !isNaN(depTime.getTime()) && !isNaN(arrTime.getTime());
+    const depTime = parseDateTimeString(flight['Departure Datetime']);
+    const arrTime = parseDateTimeString(flight['Arrival Datetime']);
+
+    const isWithinTimeWindow = depTime && arrTime && depTime >= startDateTime && arrTime <= endDateTime;
+    const hasValidDates = depTime !== null && arrTime !== null;
     const hasRequiredFields = flight.Origin && flight.Destination;
     
     // Check domestic-only constraint
@@ -37,7 +101,12 @@ function filterValidFlights(flights: Flight[], config: RouteConfig): Flight[] {
     const passesDomesticFilter = !config.domesticOnly || isDomestic;
     
     return isWithinTimeWindow && hasValidDates && hasRequiredFields && passesDomesticFilter;
-  }).sort((a, b) => new Date(a['Departure Datetime']).getTime() - new Date(b['Departure Datetime']).getTime());
+  }).sort((a, b) => {
+    const aTime = parseDateTimeString(a['Departure Datetime']);
+    const bTime = parseDateTimeString(b['Departure Datetime']);
+    if (!aTime || !bTime) return 0;
+    return aTime.getTime() - bTime.getTime();
+  });
 }
 
 /**
@@ -304,7 +373,7 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
   Array.from(startAirports).forEach(airport => {
     const initialState: RouteState = {
       airport,
-      visitedAirports: new Set([...visitedAirports, airport]), // FIXED: Initialize with already visited airports + start airport
+      visitedAirports: new Set(Array.from(visitedAirports).concat([airport])), // FIXED: Initialize with already visited airports + start airport
       path: [],
       arrivalTime: startDateTime,
       totalDuration: 0,
@@ -385,13 +454,13 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
 
     // Check if this is a complete route
     if (current.path.length > 0 && endAirports.has(current.airport)) {
-      const airportCount = current.visitedAirports.size;
+          const airportCount = current.visitedAirports.size;
       
       // Store complete routes by airport count
-      if (!routesByAirportCount.has(airportCount)) {
-        routesByAirportCount.set(airportCount, []);
-      }
-      routesByAirportCount.get(airportCount)!.push(current);
+          if (!routesByAirportCount.has(airportCount)) {
+            routesByAirportCount.set(airportCount, []);
+          }
+          routesByAirportCount.get(airportCount)!.push(current);
       
       // Continue exploring - A* will naturally find optimal routes
     }
@@ -402,29 +471,17 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
     const outgoingFlights = flightsByOrigin[current.airport] || [];
     
     for (const flight of outgoingFlights) {
-      const flightDepTime = new Date(flight['Departure Datetime']);
-      let flightArrTime = new Date(flight['Arrival Datetime']);
+      // CRITICAL FIX: Use centralized time validation
+      const validatedTimes = validateAndFixFlightTimes(flight);
+      if (!validatedTimes) {
+        continue; // Invalid flight times
+      }
       
-      // Basic time constraints
+      const { depTime: flightDepTime, arrTime: flightArrTime } = validatedTimes;
+      
+      // Time constraint validation
       const requiredDepTime = new Date(current.arrivalTime.getTime() + minConnectionTime);
       if (flightDepTime < requiredDepTime || flightArrTime > endDateTime) {
-        continue;
-      }
-      
-      // Handle overnight flights
-      if (flightArrTime.getTime() < flightDepTime.getTime()) {
-        const durationMinutes = flight['Elapsed Minutes'] || 0;
-        if (durationMinutes > 60) {
-          flightArrTime = new Date(flightArrTime);
-          flightArrTime.setDate(flightArrTime.getDate() + 1);
-        } else {
-          continue; // Invalid flight
-        }
-      }
-      
-      // Basic flight duration validation
-      const flightDuration = (flightArrTime.getTime() - flightDepTime.getTime()) / (1000 * 60);
-      if (flightDuration > 12 * 60) { // 12 hours max
         continue;
       }
       
@@ -445,9 +502,9 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
       
       const newVisited = new Set(current.visitedAirports);
       // FIXED: Always add destination to visited set (whether new or already visited)
-      newVisited.add(flight.Destination);
+        newVisited.add(flight.Destination);
 
-      const newDistance = current.totalDistance + (flight['Distance (MI)'] || flight['Distance (KM)'] || 0);
+              const newDistance = current.totalDistance + (flight['Distance (MI)'] || flight['Distance (KM)'] || 0);
       const newDuration = current.totalDuration + (flight['Elapsed Minutes'] || 0);
       const newCost = calculateRouteCost([...current.path, flight]);
 
@@ -783,7 +840,7 @@ function buildAlternativeRoute(
   alreadyVisitedAirports: Set<string> = new Set() // FIXED: Add parameter for already visited airports
 ): { path: Flight[]; visitedAirports: Set<string> } | null {
   const path: Flight[] = [];
-  const visitedAirports = new Set([...alreadyVisitedAirports]); // FIXED: Initialize with already visited airports
+  const visitedAirports = new Set(Array.from(alreadyVisitedAirports)); // FIXED: Initialize with already visited airports
   let currentAirport = startAirport;
   let currentTime = startDateTime;
   
@@ -1143,7 +1200,7 @@ export const hybridOptimizeRoute = async (
       totalDuration: bestRoute.totalDuration,
       totalPrice,
       executionTime,
-      datasetUsed: 'september', // Always using September data for hybrid optimization
+      datasetUsed: 'sept-nov', // Using Sept-Nov data for hybrid optimization
       hasPricing: true,
       optimizationMode: 'airports',
       // Additional hybrid-specific results

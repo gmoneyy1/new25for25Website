@@ -3,6 +3,70 @@ import { parseDateTime, minutesToMilliseconds } from './dateUtils';
 import { calculateAirportDistance } from './distanceUtils';
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ */
+const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
+ * Validate and fix flight times, handling overnight flights properly
+ * Returns validated departure and arrival times, or null if invalid
+ */
+function validateAndFixFlightTimes(flight: Flight): { depTime: Date; arrTime: Date } | null {
+  const depTime = parseDateTimeString(flight['Departure Datetime']);
+  let arrTime = parseDateTimeString(flight['Arrival Datetime']);
+
+  if (!depTime || !arrTime) {
+    return null;
+  }
+
+  // Handle overnight flights BEFORE any other validation
+  if (arrTime.getTime() < depTime.getTime()) {
+    const durationMinutes = flight['Elapsed Minutes'] || 0;
+    if (durationMinutes > 60) {
+      // Valid overnight flight - add one day to arrival time
+      arrTime = new Date(arrTime);
+      arrTime.setDate(arrTime.getDate() + 1);
+    } else {
+      // Invalid flight - arrival before departure with short duration
+      return null;
+    }
+  }
+
+  // Validate flight duration (max 12 hours)
+  const flightDuration = (arrTime.getTime() - depTime.getTime()) / (1000 * 60);
+  if (flightDuration > 12 * 60) {
+    return null;
+  }
+
+  return { depTime, arrTime };
+}
+
+/**
  * Pure A* optimization algorithm for flight route optimization
  * Implements clean A* with proper heuristics and state management
  */
@@ -167,19 +231,42 @@ function calculateHeuristic(
   visitedAirports: Set<string>,
   flightsByOrigin: Record<string, Flight[]>,
   endDateTime: Date,
+  currentTime: Date,
   minConnectionTime: number
 ): number {
-  // Simple heuristic: estimate based on remaining time and average flight duration
-  const remainingTime = endDateTime.getTime() - Date.now();
+  // Calculate remaining time from current state, not from now
+  const remainingTime = endDateTime.getTime() - currentTime.getTime();
   const remainingHours = remainingTime / (1000 * 60 * 60);
   
-  // Estimate average flight duration (2 hours) + connection time (1 hour) = 3 hours per new airport
-  const estimatedAirportsPerHour = 1 / 3;
+  // More aggressive heuristic: estimate 2 hours per new airport (1.5h flight + 0.5h connection)
+  const estimatedAirportsPerHour = 1 / 2;
   const estimatedAdditionalAirports = Math.floor(remainingHours * estimatedAirportsPerHour);
   
-  // Cap the heuristic to be admissible (never overestimate)
-  const maxPossibleAirports = 50; // Reasonable upper bound
-  return Math.min(estimatedAdditionalAirports, maxPossibleAirports);
+  // Count how many unique airports are reachable from current airport
+  const reachableAirports = new Set<string>();
+  const outgoingFlights = flightsByOrigin[currentAirport] || [];
+  
+  for (const flight of outgoingFlights) {
+    const flightDepTime = new Date(flight['Departure Datetime']);
+    const flightArrTime = new Date(flight['Arrival Datetime']);
+    
+    // Check if flight is feasible
+    const requiredDepTime = new Date(currentTime.getTime() + minConnectionTime);
+    if (flightDepTime >= requiredDepTime && flightArrTime <= endDateTime) {
+      reachableAirports.add(flight.Destination);
+    }
+  }
+  
+  // Heuristic is the minimum of time-based estimate and actual reachable airports
+  const timeBasedEstimate = Math.max(0, estimatedAdditionalAirports);
+  const reachableBasedEstimate = reachableAirports.size;
+  
+  // Use the more conservative estimate to maintain admissibility
+  const heuristic = Math.min(timeBasedEstimate, reachableBasedEstimate);
+  
+  // Cap to be admissible
+  const maxPossibleAirports = 20; // More reasonable upper bound
+  return Math.min(heuristic, maxPossibleAirports);
 }
 
 /**
@@ -245,7 +332,7 @@ export const pureAStarOptimize = async (
     const bestRoutes = new Map<number, AStarState[]>(); // Airport count -> best routes
     
     let iterations = 0;
-    const maxIterations = 50000; // Reasonable limit for A*
+    const maxIterations = 100000; // Increased limit for better exploration
     
     // Initialize starting positions
     Array.from(startAirports).forEach(airport => {
@@ -272,10 +359,13 @@ export const pureAStarOptimize = async (
 
       const stateSignature = createStateSignature(current.airport, current.visitedAirports);
       
-      // Skip if we've already found a better route to this state
-      if (visitedStates.has(stateSignature) && 
-          visitedStates.get(stateSignature)! > current.visitedAirports.size) {
-        continue;
+      // Skip if we've already found a significantly better route to this state
+      // Allow some exploration of similar quality routes
+      if (visitedStates.has(stateSignature)) {
+        const bestAirportCount = visitedStates.get(stateSignature)!;
+        if (bestAirportCount > current.visitedAirports.size + 1) {
+          continue; // Only skip if significantly better route exists
+        }
       }
       
       visitedStates.set(stateSignature, current.visitedAirports.size);
@@ -289,12 +379,18 @@ export const pureAStarOptimize = async (
         }
         bestRoutes.get(airportCount)!.push(current);
         
-        console.log(`✅ Found complete route: ${airportCount} airports, ${current.path.length} flights`);
+        console.log(`✅ Found complete route: ${airportCount} airports, ${current.path.length} flights, cost: $${current.totalCost}`);
         
-        // For A*, we can stop early if we find a route with the maximum possible airports
-        // This is a key advantage of A* over the hybrid approach
-        if (airportCount >= 10) { // Reasonable upper bound
+        // For A*, we can stop early if we find a route with a very high number of airports
+        // But be less restrictive to allow exploration of longer routes
+        if (airportCount >= 12) { // Reasonable threshold for early termination
           console.log(`🎯 Found high-quality route (${airportCount} airports), stopping early`);
+          break;
+        }
+        
+        // Also stop early if we've found several good routes and iterations are high
+        if (iterations > 50000 && bestRoutes.size >= 3) {
+          console.log(`🎯 Found ${bestRoutes.size} different route qualities, stopping early`);
           break;
         }
       }
@@ -303,10 +399,15 @@ export const pureAStarOptimize = async (
       const outgoingFlights = flightsByOrigin[current.airport] || [];
       
       for (const flight of outgoingFlights) {
-        const flightDepTime = new Date(flight['Departure Datetime']);
-        const flightArrTime = new Date(flight['Arrival Datetime']);
+        // CRITICAL FIX: Use centralized time validation
+        const validatedTimes = validateAndFixFlightTimes(flight);
+        if (!validatedTimes) {
+          continue; // Invalid flight times
+        }
         
-        // Check time constraints
+        const { depTime: flightDepTime, arrTime: flightArrTime } = validatedTimes;
+        
+        // Time constraint validation
         const requiredDepTime = new Date(current.arrivalTime.getTime() + minConnectionTime);
         if (flightDepTime < requiredDepTime || flightArrTime > endDateTime) {
           continue;
@@ -343,15 +444,17 @@ export const pureAStarOptimize = async (
           newVisited,
           flightsByOrigin,
           endDateTime,
+          flightArrTime,
           minConnectionTime
         );
         
         // fScore = gScore + heuristic (A* formula)
         newState.fScore = newState.gScore + heuristic;
         
-        // Priority for A*: higher fScore = higher priority
-        // But we want to maximize airports, so we use negative fScore for min-heap behavior
-        const priority = -newState.fScore;
+        // Priority for A*: balance airport count with cost efficiency
+        // Primary: airport count (gScore), Secondary: cost efficiency, Tertiary: fScore
+        const costEfficiency = newState.gScore > 0 ? newState.gScore / (newState.totalCost / 100) : 0;
+        const priority = newState.gScore * 10000 + costEfficiency * 100 + (1000 - newState.fScore);
         
         pq.push(newState, priority);
       }
@@ -390,7 +493,7 @@ export const pureAStarOptimize = async (
       totalDuration: bestRoute.totalDuration,
       totalPrice: bestRoute.totalCost,
       executionTime,
-      datasetUsed: 'september',
+      datasetUsed: 'sept-nov',
       hasPricing: true,
       optimizationMode: 'airports',
       // A* specific results

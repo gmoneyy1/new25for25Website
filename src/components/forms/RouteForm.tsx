@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Calendar, Search, AlertCircle, ChevronDown, MapPin } from 'lucide-react';
 import { RouteConfig } from '../../lib/types';
 import { FormErrors } from '../../lib/formValidation';
@@ -92,19 +92,19 @@ export const RouteForm: React.FC<RouteFormProps> = ({
   }, []);
 
   // Reset validation attempt state when form becomes valid
-  useEffect(() => {
-    if (hasAttemptedValidation && validateForm()) {
-      setHasAttemptedValidation(false);
-    }
-  }, [hasAttemptedValidation, errors]);
-
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const hasErrors = Object.values(errors).some(error => error && error.length > 0);
     console.log('🔍 validateForm called, errors:', errors);
     console.log('🔍 hasErrors:', hasErrors);
     console.log('🔍 Object.values(errors):', Object.values(errors));
     return !hasErrors;
-  };
+  }, [errors]);
+
+  useEffect(() => {
+    if (hasAttemptedValidation && validateForm()) {
+      setHasAttemptedValidation(false);
+    }
+  }, [hasAttemptedValidation, errors, validateForm]);
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6">

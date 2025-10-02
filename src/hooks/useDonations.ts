@@ -56,6 +56,7 @@ export function useDonations() {
       return {
         success: false,
         error: errorMessage,
+        message: errorMessage,
       };
     } finally {
       setIsProcessing(false);

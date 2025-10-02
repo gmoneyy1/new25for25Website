@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Path to the CSV file in the data directory
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+    const csvPath = path.join(process.cwd(), 'sept_octnov_combined_dist.csv');
     
     // Read the CSV file
     const csvData = await fs.readFile(csvPath, 'utf-8');
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
  */
 export async function HEAD(request: NextRequest) {
   try {
-    const csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule062025.csv');
+    const csvPath = path.join(process.cwd(), 'sept_octnov_combined_dist.csv');
     await fs.access(csvPath);
     
     return new NextResponse(null, {

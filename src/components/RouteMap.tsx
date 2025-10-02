@@ -496,7 +496,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ flights, className = '', hei
                     fill="#ff6b35"
                     style={{ fontSize: '10px', fontWeight: '600' }}
                   >
-                    {flight.FlightNumber || `B${index + 1}`}
+                    {flight['Flight Number'] || `B${index + 1}`}
                   </text>
                   
                   {/* Direction arrow */}
