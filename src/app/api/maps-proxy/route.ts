@@ -83,9 +83,10 @@ export async function POST(request: NextRequest) {
     // Handle different map actions
     switch (action) {
       case 'loadScript':
-        // Return a secure script URL that the client can load
+        // SECURE: Return a proxied script URL that doesn't expose the API key
+        // The client will load the script through our proxy endpoint
         return NextResponse.json({
-          scriptUrl: `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=geometry&loading=async&callback=initGoogleMaps`,
+          scriptUrl: `/api/maps-proxy/script?libraries=geometry&loading=async&callback=initGoogleMaps`,
           hasKey: true
         }, {
           headers: {
