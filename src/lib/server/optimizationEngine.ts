@@ -4,6 +4,36 @@ import { ACTIVE_CONFIG, LARGE_AIRPORT_CONFIG, OptimizationConfig } from '../opti
 import { kilometersToMiles, calculateAirportDistance } from '../distanceUtils';
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ */
+const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
  * Safely parse flight cost from price string
  * @param price - Price string (e.g., "$123" or "123")
  * @returns Numeric cost or 0 if invalid
@@ -125,17 +155,18 @@ const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] =>
   ]);
 
   const filteredFlights = flights.filter(flight => {
-    const depTime = new Date(flight['Departure Datetime']);
-    const arrTime = new Date(flight['Arrival Datetime']);
+    const depTime = parseDateTimeString(flight['Departure Datetime']);
+    const arrTime = parseDateTimeString(flight['Arrival Datetime']);
     
     // Check if flights are within the reliable data range
-    const isWithinReliableRange = depTime >= reliableDataStart && 
-                                 depTime <= reliableDataEnd && 
-                                 arrTime >= reliableDataStart && 
+    const isWithinReliableRange = depTime && arrTime &&
+                                 depTime >= reliableDataStart &&
+                                 depTime <= reliableDataEnd &&
+                                 arrTime >= reliableDataStart &&
                                  arrTime <= reliableDataEnd;
     
-    const isWithinTimeWindow = depTime >= startDateTime && arrTime <= endDateTime;
-    const hasValidDates = isValidDateObject(depTime) && isValidDateObject(arrTime);
+    const isWithinTimeWindow = depTime && arrTime && depTime >= startDateTime && arrTime <= endDateTime;
+    const hasValidDates = depTime !== null && arrTime !== null && isValidDateObject(depTime) && isValidDateObject(arrTime);
     const hasRequiredFields = flight.Origin && flight.Destination;
     
     // Check domestic-only constraint

@@ -24,15 +24,24 @@ export async function POST(request: NextRequest) {
     const septemberEnd = new Date('2025-09-30T23:59:59');
     
     // Determine which dataset to use
+    const octoberStart = new Date('2025-10-01T00:00:00');
+    const octoberEnd = new Date('2025-11-30T23:59:59');
+    
     const useSeptemberData = (startDate >= septemberStart && startDate <= septemberEnd) ||
                             (endDate >= septemberStart && endDate <= septemberEnd);
+    const useOctNovData = (startDate >= octoberStart && startDate <= octoberEnd) ||
+                         (endDate >= octoberStart && endDate <= octoberEnd);
     
     let csvPath: string;
-    if (useSeptemberData) {
-      csvPath = path.join(process.cwd(), 'september_data.csv');
-      console.log('📅 A* API: Using September dataset (Sept 1-30) with distances and pricing');
+    let datasetUsed: 'august' | 'sept-nov' | 'oct-nov';
+    
+    if (useSeptemberData || useOctNovData) {
+      csvPath = path.join(process.cwd(), 'sept_octnov_combined_dist.csv');
+      datasetUsed = 'sept-nov';
+      console.log('📅 A* API: Using Combined September–November dataset with distances and pricing');
     } else {
       csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+      datasetUsed = 'august';
       console.log('📅 A* API: Using August dataset');
     }
     
@@ -82,6 +91,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ A* API: Optimization completed in ${result.executionTime}ms`);
     console.log(`📊 A* API: Result: ${result.totalFlights} flights, ${result.newAirportsVisited.length} new airports`);
+
+    // Add dataset information to the result
+    if ('path' in result) {
+      result.datasetUsed = datasetUsed;
+      result.hasPricing = useSeptemberData || useOctNovData;
+      result.optimizationMode = config.optimizeForCost ? 'cost' : 'airports';
+    }
 
     return NextResponse.json(result);
 

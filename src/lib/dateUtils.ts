@@ -9,11 +9,47 @@ export const parseDateTime = (dateStr: string, timeStr: string): Date => {
 };
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ * @param dateTimeStr - Date time string in MM/DD/YYYY HH:MMam/pm format
+ * @returns Date object or null if invalid
+ */
+export const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
  * Format a Date object to local time string
  * @param date - Date object to format
  * @returns Formatted date string in local time
  */
 export const formatDateTime = (date: Date): string => {
+  if (!date || isNaN(date.getTime())) {
+    return 'Invalid Date';
+  }
+  
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -21,6 +57,19 @@ export const formatDateTime = (date: Date): string => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+/**
+ * Format flight datetime string for display
+ * @param dateTimeStr - Date time string in MM/DD/YYYY HH:MMam/pm format
+ * @returns Formatted date string for display
+ */
+export const formatFlightDateTime = (dateTimeStr: string): string => {
+  const date = parseDateTimeString(dateTimeStr);
+  if (!date) {
+    return dateTimeStr; // Return original string if parsing fails
+  }
+  return formatDateTime(date);
 };
 
 /**

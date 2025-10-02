@@ -51,7 +51,7 @@ export interface OptimizationResults {
   executionTime?: number;
   iterations?: number;
   // Dataset information
-  datasetUsed?: 'august' | 'september';
+  datasetUsed?: 'august' | 'sept-nov' | 'oct-nov';
   hasPricing?: boolean;
   // Optimization mode
   optimizationMode?: 'airports' | 'cost';

@@ -4,6 +4,70 @@ import { kilometersToMiles } from './distanceUtils';
 import { ACTIVE_CONFIG } from './optimizationConfig';
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ */
+const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
+ * Validate and fix flight times, handling overnight flights properly
+ * Returns validated departure and arrival times, or null if invalid
+ */
+function validateAndFixFlightTimes(flight: Flight): { depTime: Date; arrTime: Date } | null {
+  const depTime = parseDateTimeString(flight['Departure Datetime']);
+  let arrTime = parseDateTimeString(flight['Arrival Datetime']);
+
+  if (!depTime || !arrTime) {
+    return null;
+  }
+
+  // Handle overnight flights BEFORE any other validation
+  if (arrTime.getTime() < depTime.getTime()) {
+    const durationMinutes = flight['Elapsed Minutes'] || 0;
+    if (durationMinutes > 60) {
+      // Valid overnight flight - add one day to arrival time
+      arrTime = new Date(arrTime);
+      arrTime.setDate(arrTime.getDate() + 1);
+    } else {
+      // Invalid flight - arrival before departure with short duration
+      return null;
+    }
+  }
+
+  // Validate flight duration (max 12 hours)
+  const flightDuration = (arrTime.getTime() - depTime.getTime()) / (1000 * 60);
+  if (flightDuration > 12 * 60) {
+    return null;
+  }
+
+  return { depTime, arrTime };
+}
+
+/**
  * Calculate heuristic value for A* search with multi-objective optimization
  * @param visited - Set of visited airports
  * @param allNew - Set of all possible new airports
@@ -248,8 +312,13 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
       const minDepartureTime = new Date(arrivalTime.getTime() + minConnectionTime);
 
       nextFlights.forEach(nextFlight => {
-        const nextDepTime = new Date(nextFlight['Departure Datetime']);
-        const nextArrTime = new Date(nextFlight['Arrival Datetime']);
+        // CRITICAL FIX: Use centralized time validation
+        const validatedTimes = validateAndFixFlightTimes(nextFlight);
+        if (!validatedTimes) {
+          return; // Invalid flight times
+        }
+        
+        const { depTime: nextDepTime, arrTime: nextArrTime } = validatedTimes;
 
         // Check constraints
         if (nextDepTime < minDepartureTime) return;

@@ -6,6 +6,8 @@ const AUGUST_DATA_START = new Date('2025-08-01T00:00:00');
 const AUGUST_DATA_END = new Date('2025-12-31T23:59:59');
 const SEPTEMBER_DATA_START = new Date('2025-09-01T00:00:00');
 const SEPTEMBER_DATA_END = new Date('2025-09-30T23:59:59');
+const OCTNOV_DATA_START = new Date('2025-10-01T00:00:00');
+const OCTNOV_DATA_END = new Date('2025-11-30T23:59:59');
 
 /**
  * Check if a flight is within the August data range
@@ -27,20 +29,81 @@ const isFlightInAugustRange = (flight: Flight): boolean => {
 };
 
 /**
+ * Parse MM/DD/YYYY HH:MMam/pm format to Date object
+ */
+const parseDateTimeString = (dateTimeStr: string): Date | null => {
+  try {
+    if (!dateTimeStr) return null;
+
+    // Handle MM/DD/YYYY HH:MMam/pm format (e.g., "10/01/2025 11:59pm")
+    const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+    if (match) {
+      const [, month, day, year, hour, minute, ampm] = match;
+      let hour24 = parseInt(hour);
+
+      if (ampm.toLowerCase() === 'pm' && hour24 !== 12) {
+        hour24 += 12;
+      } else if (ampm.toLowerCase() === 'am' && hour24 === 12) {
+        hour24 = 0;
+      }
+
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), hour24, parseInt(minute));
+    }
+
+    // Fallback to standard Date parsing
+    return new Date(dateTimeStr);
+  } catch (error) {
+    console.warn('Error parsing datetime string:', dateTimeStr, error);
+    return null;
+  }
+};
+
+/**
  * Check if a flight is within the September data range
  */
 const isFlightInSeptemberRange = (flight: Flight): boolean => {
   try {
-    const depTime = new Date(flight['Departure Datetime']);
-    
+    const depTime = parseDateTimeString(flight['Departure Datetime']);
+    if (!depTime) return false;
+
     // Extract date components from the Date object
     const year = depTime.getFullYear();
     const month = depTime.getMonth() + 1; // getMonth() returns 0-based, so add 1
     const day = depTime.getDate();
-    
+
     // Check if date is within September 1-30, 2025
     return year === 2025 && month === 9 && day >= 1 && day <= 30;
   } catch {
+    return false;
+  }
+};
+
+/**
+ * Check if a flight is within the October/November data range
+ */
+const isFlightInOctNovRange = (flight: Flight): boolean => {
+  try {
+    const depTime = parseDateTimeString(flight['Departure Datetime']);
+    if (!depTime) {
+      console.log(`🚫 Failed to parse datetime: "${flight['Departure Datetime']}" for flight ${flight['Flight Number']}`);
+      return false;
+    }
+
+    // Extract date components from the Date object
+    const year = depTime.getFullYear();
+    const month = depTime.getMonth() + 1; // getMonth() returns 0-based, so add 1
+    const day = depTime.getDate();
+
+    const isValid = year === 2025 && ((month === 10) || (month === 11));
+
+    if (!isValid && flight['Flight Number'] === 'B6 66') {
+      console.log(`🔍 Debug for flight ${flight['Flight Number']}: datetime="${flight['Departure Datetime']}", parsed date=${depTime.toISOString()}, year=${year}, month=${month}, day=${day}, isValid=${isValid}`);
+    }
+
+    // Check if date is within October 1 - November 30, 2025
+    return isValid;
+  } catch (error) {
+    console.log(`❌ Error in date range check for flight ${flight['Flight Number']}: ${error}`);
     return false;
   }
 };
@@ -65,22 +128,38 @@ export const parseCsvText = (csvText: string): Flight[] => {
   console.log('📋 Header:', header);
   
   // Detect data format based on header
-  const isAugustFormat = header.includes('Distance (MI)') || header.includes('Distance (KM)');
-  const isSeptemberFormat = header.includes('Price') && header.includes('Stops');
+  const isOctNovFormat = header.includes('Cheapest Price') && header.includes('Search URL') && header.includes('Departure Datetime');
+  const isSeptemberFormat = header.includes('Price') && header.includes('Stops') && header.includes('Departure Date') && header.includes('Arrival Time');
+  const isAugustFormat = (header.includes('Distance (MI)') || header.includes('Distance (KM)')) && !isOctNovFormat && !isSeptemberFormat;
+
+  console.log('🔍 Format detection:', {
+    isAugustFormat,
+    isSeptemberFormat,
+    isOctNovFormat,
+    hasPrice: header.includes('Price'),
+    hasStops: header.includes('Stops'),
+    hasDepartureDate: header.includes('Departure Date'),
+    hasArrivalTime: header.includes('Arrival Time'),
+    hasCheapestPrice: header.includes('Cheapest Price'),
+    hasSearchURL: header.includes('Search URL'),
+    hasDepartureDatetime: header.includes('Departure Datetime')
+  });
   
-  console.log('🔍 Format detection:', { isAugustFormat, isSeptemberFormat });
-  
-  if (!isAugustFormat && !isSeptemberFormat) {
-    throw new Error('Unknown CSV format. Expected either August or September data format.');
+  if (!isAugustFormat && !isSeptemberFormat && !isOctNovFormat) {
+    throw new Error('Unknown CSV format. Expected August, September, or October/November data format.');
   }
 
-  console.log(`Detected ${isAugustFormat ? 'August' : 'September'} data format`);
+  console.log(`Detected ${isAugustFormat ? 'August' : isSeptemberFormat ? 'September' : 'October/November'} data format`);
 
   // Parse data rows
   const flights: Flight[] = [];
   let skippedCount = 0;
   
-  if (isSeptemberFormat) {
+  if (isOctNovFormat) {
+    // October/November format parsing
+    console.log('📅 Using October/November data parser');
+    return parseOctNovData(csvText);
+  } else if (isSeptemberFormat) {
     // Special handling for malformed September data
     console.log('📅 Using September data parser');
     return parseSeptemberData(csvText);
@@ -108,14 +187,9 @@ export const parseCsvText = (csvText: string): Flight[] => {
           'Distance (MI)': parseFloat(values[header.indexOf('Distance (MI)') || '0']) || 0 // Already in miles
         };
 
-        // Validate required fields and date range
-        const isValidRange = isFlightInAugustRange(flight);
-        
-        if (flight['Flight Number'] && flight.Origin && flight.Destination && isValidRange) {
+        // Validate required fields only - let optimization engine handle date filtering
+        if (flight['Flight Number'] && flight.Origin && flight.Destination) {
           flights.push(flight);
-        } else if (flight['Flight Number'] && flight.Origin && flight.Destination) {
-          // Flight has required fields but is outside reliable date range
-          skippedCount++;
         }
       } catch (error) {
         console.warn(`Skipping row ${i + 1}: ${error}`);
@@ -123,9 +197,6 @@ export const parseCsvText = (csvText: string): Flight[] => {
     }
   }
 
-  if (skippedCount > 0) {
-    console.log(`Skipped ${skippedCount} flights outside reliable date range`);
-  }
 
   console.log(`Successfully parsed ${flights.length} flights`);
   return flights;
@@ -281,8 +352,8 @@ const parseSeptemberData = (csvText: string): Flight[] => {
         searchURL: searchURL ? 'Found' : 'Missing'
       });
       
-      // Validate date range
-      if (isFlightInSeptemberRange(flight)) {
+      // Add flight if it has required fields - let optimization engine handle date filtering
+      if (flight['Flight Number'] && flight.Origin && flight.Destination) {
         // Debug: Log the actual flight object being created
         console.log(`🔍 Flight object created:`, {
           flightNumber: flight['Flight Number'],
@@ -295,11 +366,9 @@ const parseSeptemberData = (csvText: string): Flight[] => {
           searchURL: flight.SearchURL,
           routeType: flight['Route Type']
         });
-        
+
         flights.push(flight);
         console.log(`✅ Entry ${i}: Added to flights array`);
-      } else {
-        console.log(`❌ Entry ${i}: Failed date range validation`);
       }
       
     } catch (error) {
@@ -308,6 +377,74 @@ const parseSeptemberData = (csvText: string): Flight[] => {
   }
   
   console.log(`🎉 Successfully parsed ${flights.length} September flights`);
+  return flights;
+};
+
+/**
+ * Special parser for October/November CSV data (now with proper datetime format)
+ */
+const parseOctNovData = (csvText: string): Flight[] => {
+  console.log('🔍 parseOctNovData called');
+  const flights: Flight[] = [];
+
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) {
+    console.log('❌ No data rows found in October/November CSV');
+    return flights;
+  }
+
+  const header = parseCsvLine(lines[0]);
+  console.log('📋 October/November header:', header);
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    try {
+      const values = parseCsvLine(line);
+      if (values.length !== header.length) {
+        console.warn(`Skipping row ${i + 1}: column count mismatch`);
+        continue;
+      }
+
+      // Parse the corrected October/November format with full datetimes
+      const flightNumber = values[header.indexOf('Flight Number')] || '';
+      const origin = values[header.indexOf('Origin')] || '';
+      const destination = values[header.indexOf('Destination')] || '';
+      const departureDatetime = values[header.indexOf('Departure Datetime')] || '';
+      const arrivalDatetime = values[header.indexOf('Arrival Datetime')] || '';
+      const elapsedMinutes = parseFloat(values[header.indexOf('Elapsed Minutes')]) || 0;
+      const price = values[header.indexOf('Cheapest Price')] || '';
+      const searchURL = values[header.indexOf('Search URL')] || '';
+      const distance = values[header.indexOf('Distance (MI)')] || '0';
+
+      const flight: Flight = {
+        'Flight Number': flightNumber,
+        'Origin': origin,
+        'Destination': destination,
+        'Departure Datetime': departureDatetime,
+        'Arrival Datetime': arrivalDatetime,
+        'Elapsed Minutes': elapsedMinutes,
+        'Equipment': '',
+        'Price': price,
+        'SearchURL': searchURL,
+        'Route Type': 'OK',
+        'Distance (MI)': parseFloat(distance) || 0
+      };
+
+      // Validate required fields only - let optimization engine handle date filtering
+      if (flight['Flight Number'] && flight.Origin && flight.Destination) {
+        flights.push(flight);
+        if (flights.length <= 5) {
+          console.log(`✅ Added flight: ${flight['Flight Number']} ${flight.Origin}->${flight.Destination}`);
+        }
+      }
+    } catch (error) {
+      console.warn(`Skipping row ${i + 1}: ${error}`);
+    }
+  }
+
+  console.log(`🎉 Successfully parsed ${flights.length} October/November flights`);
   return flights;
 };
 
@@ -363,8 +500,9 @@ export const validateFlightData = (flights: Flight[]): boolean => {
     return false;
   }
 
-  // Check if this is September data (has Price field) or August data
+  // Check if this is September data (has Price field), October/November data (has Cheapest Price), or August data
   const isSeptemberData = flights[0] && 'Price' in flights[0];
+  const isOctNovData = flights[0] && 'SearchURL' in flights[0] && 'Price' in flights[0];
   
   const requiredFields = [
     'Flight Number',
@@ -378,6 +516,9 @@ export const validateFlightData = (flights: Flight[]): boolean => {
   // Add format-specific required fields
   if (isSeptemberData) {
     // September data: Price, SearchURL, and Distance (MI) are required
+    requiredFields.push('Price', 'SearchURL', 'Distance (MI)');
+  } else if (isOctNovData) {
+    // October/November data: Price, SearchURL, and Distance (MI) are required
     requiredFields.push('Price', 'SearchURL', 'Distance (MI)');
   } else {
     // August data: Equipment and Distance (MI) are required

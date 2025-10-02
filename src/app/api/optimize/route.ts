@@ -91,33 +91,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load and parse CSV data based on date range
+    // Load and parse CSV data based on date range (use date strings to avoid timezone issues)
+    const startDateStr = config.startDate;
+    const endDateStr = config.endDate;
+
+    // Determine which dataset to use based on date strings
+    const useSeptemberData = (startDateStr >= '2025-09-01' && startDateStr <= '2025-09-30') ||
+                            (endDateStr >= '2025-09-01' && endDateStr <= '2025-09-30');
+    const useOctNovData = (startDateStr >= '2025-10-01' && startDateStr <= '2025-11-30') ||
+                         (endDateStr >= '2025-10-01' && endDateStr <= '2025-11-30');
+
+    // Keep original dates for legacy logging
     const startDate = new Date(config.startDate);
     const endDate = new Date(config.endDate);
     const septemberStart = new Date('2025-09-01T00:00:00');
     const septemberEnd = new Date('2025-09-30T23:59:59');
-    
-    // Determine which dataset to use
-    // Use September data if either start or end date falls within September 1-30
-    const useSeptemberData = (startDate >= septemberStart && startDate <= septemberEnd) ||
-                            (endDate >= septemberStart && endDate <= septemberEnd);
+    const octoberStart = new Date('2025-10-01T00:00:00');
+    const octoberEnd = new Date('2025-11-30T23:59:59');
     
     console.log('🔍 Date range analysis:', {
       startDate: config.startDate,
       endDate: config.endDate,
       useSeptemberData,
+      useOctNovData,
       septemberStart: septemberStart.toISOString(),
-      septemberEnd: septemberEnd.toISOString()
+      septemberEnd: septemberEnd.toISOString(),
+      octoberStart: octoberStart.toISOString(),
+      octoberEnd: octoberEnd.toISOString()
     });
     
     let csvPath: string;
-    if (useSeptemberData) {
-      csvPath = path.join(process.cwd(), 'september_data.csv');
-      console.log('📅 Using September dataset (Sept 1-30, 2025) with distances');
+    let datasetUsed: 'august' | 'sept-nov' | 'oct-nov';
+    
+    if (useSeptemberData || useOctNovData) {
+      csvPath = path.join(process.cwd(), 'sept_octnov_combined_dist.csv');
+      datasetUsed = 'sept-nov';
+      console.log('📅 Using Combined September–November dataset with distances and pricing');
       console.log('📁 CSV path:', csvPath);
-      console.log('📁 Current working directory:', process.cwd());
     } else {
       csvPath = path.join(process.cwd(), 'data', 'jetblue_schedule.csv');
+      datasetUsed = 'august';
       console.log('📅 Using August dataset (Aug 1 - Dec 31, 2025)');
       console.log('📁 CSV path:', csvPath);
     }
@@ -163,8 +176,8 @@ export async function POST(request: NextRequest) {
 
     // Add dataset information to the result
     if ('path' in result) {
-      result.datasetUsed = useSeptemberData ? 'september' : 'august';
-      result.hasPricing = useSeptemberData;
+      result.datasetUsed = datasetUsed;
+      result.hasPricing = useSeptemberData || useOctNovData;
       result.optimizationMode = config.optimizeForCost ? 'cost' : 'airports';
     }
 
