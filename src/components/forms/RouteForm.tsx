@@ -132,7 +132,7 @@ export const RouteForm: React.FC<RouteFormProps> = ({
               <strong>Available Date Range:</strong> August 1, 2025 - December 31, 2025
             </p>
             <p className="text-xs text-blue-600 mt-1">
-              Pricing data available for September.
+              Pricing data available for October and November.
             </p>
           </div>
           

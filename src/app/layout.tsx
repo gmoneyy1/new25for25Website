@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { label: 'About', href: '/about' },
   { label: 'Settings', href: '/settings' },
   { label: 'Contact Us', href: '/contact' },
+  { label: 'Connect', href: 'https://www.linkedin.com/in/george-zhan-10045a377', external: true },
   { label: 'Donate', href: '/donate' },
 ];
 
@@ -37,12 +38,23 @@ function Navigation() {
         <ul className="flex gap-6">
           {NAV_ITEMS.map(item => (
             <li key={item.href}>
-              <Link
-                href={item.href}
-                className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-150"
-              >
-                {item.label}
-              </Link>
+              {item.external ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-150"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  href={item.href}
+                  className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-150"
+                >
+                  {item.label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>

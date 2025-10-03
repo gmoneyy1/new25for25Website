@@ -356,7 +356,7 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           <div className="mt-2 text-sm text-blue-800">
             <p>
                 <strong>Dataset:</strong> {
-                  results.datasetUsed === 'sept-nov' ? 'September 2025' :
+                  results.datasetUsed === 'sept-nov' ? 'October - November 2025' :
                   results.datasetUsed === 'oct-nov' ? 'October - November 2025' :
                   'August 1 - December 31, 2025'
                 }
