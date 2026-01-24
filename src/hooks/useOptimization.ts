@@ -35,14 +35,14 @@ const createConfigHash = (config: RouteConfig): string => {
 };
 
 // Optimization API call using hybrid algorithm by default, with fallback to A*
-const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
+const fetchOptimization = async (config: RouteConfig, algorithmVersion: 'old' | 'improved' = 'old'): Promise<Results> => {
   if (process.env.NODE_ENV === 'development') {
     console.log('🌐 Making API call to hybrid optimization with config:', config);
   }
   
   try {
     // Try hybrid optimization first
-    const result = await apiHybridOptimizeRoute(config);
+    const result = await apiHybridOptimizeRoute(config, algorithmVersion);
     
     if (process.env.NODE_ENV === 'development') {
       console.log('✅ Hybrid optimization successful, result:', result);
@@ -75,7 +75,7 @@ const fetchOptimization = async (config: RouteConfig): Promise<Results> => {
   }
 };
 
-export const useOptimization = (config: RouteConfig | null) => {
+export const useOptimization = (config: RouteConfig | null, algorithmVersion: 'old' | 'improved' = 'old') => {
   const queryClient = useQueryClient();
 
   // Debug logging (development only)
@@ -91,7 +91,7 @@ export const useOptimization = (config: RouteConfig | null) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('🚀 fetchOptimization called with config:', config);
       }
-      return fetchOptimization(config!);
+      return fetchOptimization(config!, algorithmVersion);
     },
     enabled: !!(config && validateConfig(config)), // Only run when config is provided and valid
     staleTime: 10 * 60 * 1000, // 10 minutes - optimization results are stable
@@ -104,7 +104,7 @@ export const useOptimization = (config: RouteConfig | null) => {
 
   // Mutation for triggering new optimization
   const mutation = useMutation({
-    mutationFn: fetchOptimization,
+    mutationFn: (config: RouteConfig) => fetchOptimization(config, algorithmVersion),
     onSuccess: (data, variables) => {
       if (process.env.NODE_ENV === 'development') {
         console.log('🎉 Mutation success! Data:', data, 'Variables:', variables);

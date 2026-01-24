@@ -2,6 +2,8 @@ import { Flight, RouteConfig, OptimizationResults, OptimizationError, SearchStat
 import { parseDateTime, minutesToMilliseconds } from '../dateUtils';
 import { ACTIVE_CONFIG, LARGE_AIRPORT_CONFIG, OptimizationConfig } from '../optimizationConfig';
 import { kilometersToMiles, calculateAirportDistance } from '../distanceUtils';
+import { improvedHybridOptimizeRoute } from '../improvedHybridOptimization';
+import { createFlightExpansionProvider, extractAirports, convertToOptimizationResults } from '../flightExpansionProvider';
 
 /**
  * Parse MM/DD/YYYY HH:MMam/pm format to Date object
@@ -70,20 +72,20 @@ const calculateHeuristic = (visited: Set<string>, allNew: Set<string>, totalDura
 };
 
 /**
- * Check if optimization should use September data based on date range
+ * Check if optimization should use September/October/November data based on date range
  * @param config - Route configuration
- * @returns True if either start or end date is within September 1-30, 2025
+ * @returns True if either start or end date is within September 1 - November 30, 2025
  */
 const shouldUseSeptemberData = (config: RouteConfig): boolean => {
   const septemberStart = new Date('2025-09-01T00:00:00');
-  const septemberEnd = new Date('2025-09-30T23:59:59');
+  const novemberEnd = new Date('2025-11-30T23:59:59');
   
   const startDate = new Date(config.startDate);
   const endDate = new Date(config.endDate);
   
-  // Use September data if either start or end date falls within September 1-30
-  return (startDate >= septemberStart && startDate <= septemberEnd) ||
-         (endDate >= septemberStart && endDate <= septemberEnd);
+  // Use September/October/November data if either start or end date falls within Sept 1 - Nov 30
+  return (startDate >= septemberStart && startDate <= novemberEnd) ||
+         (endDate >= septemberStart && endDate <= novemberEnd);
 };
 
 /**
@@ -114,7 +116,7 @@ const filterValidFlights = (flights: Flight[], config: RouteConfig): Flight[] =>
     ? new Date('2025-09-01T00:00:00')
     : new Date('2025-08-01T00:00:00');
   const reliableDataEnd = useSeptemberData
-    ? new Date('2025-09-30T23:59:59')
+    ? new Date('2025-11-30T23:59:59')  // Extended to include November data
     : new Date('2025-12-31T23:59:59');
 
   console.log('🔍 Data range settings:', {
@@ -375,5 +377,99 @@ export const optimizeRouteForCost = async (flights: Flight[], config: RouteConfi
       optimizeForCost: true
     };
     return await optimizeRoute(flights, costConfig);
+  }
+};
+
+/**
+ * NEW: Improved hybrid optimization using the clean beam search algorithm
+ * This is the drop-in replacement that fixes the three main issues:
+ * 1. No more premature stopping at ~15 airports
+ * 2. Deterministic results (same input = same output)
+ * 3. Better pruning that doesn't miss optimal routes
+ */
+export const optimizeRouteImproved = async (
+  flights: Flight[], 
+  config: RouteConfig,
+  params?: {
+    seed?: number;
+    beamWidth?: number;
+    maxBeam?: number;
+    maxParetoPerAirport?: number;
+    stagnationLayers?: number;
+    minBeamToContinue?: number;
+    maxMillis?: number;
+    randomRestarts?: number;
+  }
+): Promise<OptimizationResults | OptimizationError> => {
+  const startTime = Date.now();
+  
+  try {
+    console.log('🚀 Using IMPROVED hybrid optimization algorithm');
+    
+    // Parse configuration
+    const { startAirports, endAirports, visitedAirports } = parseAirportSets(config);
+    const startDateTime = parseDateTime(config.startDate, config.startTime);
+    const endDateTime = parseDateTime(config.endDate, config.endTime);
+    const minConnectionTime = minutesToMilliseconds(config.minConnectionTime);
+    
+    // Filter flights based on time constraints and validity
+    const validFlights = filterValidFlights(flights, config);
+    
+    if (validFlights.length === 0) {
+      return { error: 'No valid flights found in the specified time window' };
+    }
+
+    // Extract all airports and create expansion provider
+    const allAirports = extractAirports(validFlights);
+    const expansionProvider = createFlightExpansionProvider(validFlights, {
+      startDateTime,
+      endDateTime,
+      minConnectionTime: config.minConnectionTime,
+      endAirports,
+      visitedAirports
+    });
+    
+    // Calculate total time budget in minutes
+    const totalTimeMinutes = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60);
+    
+    // Set up parameters with defaults
+    const algorithmParams = {
+      seed: 42,
+      beamWidth: 96,
+      maxBeam: 224,
+      maxParetoPerAirport: 64,
+      stagnationLayers: 5,
+      minBeamToContinue: 12,
+      maxMillis: 7000,
+      randomRestarts: 0,
+      maxTotalTime: totalTimeMinutes,
+      minConnectionTimeMinutes: config.minConnectionTime,
+      ...params
+    };
+    
+    // Run the improved algorithm
+    const result = improvedHybridOptimizeRoute(
+      allAirports,
+      { 
+        startAirport: Array.from(startAirports)[0], // Take first start airport
+        startTimestamp: startDateTime.getTime(), // Convert to Unix ms
+        timeBudget: totalTimeMinutes 
+      },
+      algorithmParams,
+      expansionProvider
+    );
+    
+    // Convert result back to your existing format
+    const optimizationResult = convertToOptimizationResults(result, validFlights, visitedAirports);
+    optimizationResult.executionTime = Date.now() - startTime;
+    
+    console.log(`✅ Improved algorithm found ${result.uniqueCount} unique airports in ${optimizationResult.executionTime}ms`);
+    console.log(`   Debug: ${result.debug?.layers} layers, beam max ${result.debug?.beamStats.max}`);
+    
+    return optimizationResult;
+    
+  } catch (error) {
+    console.error('Improved optimization error:', error);
+    return { error: `Optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
 }; 

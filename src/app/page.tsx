@@ -14,7 +14,7 @@ import { parseCsvText } from '../lib/server/csvParser';
 import { validateRouteConfig, FormErrors } from '../lib/formValidation';
 import { getScheduleData, getErrorMessage } from '../lib/apiService';
 import { getOptimizationConfig, updateActiveConfig } from '../lib/optimizationConfig';
-import { DonationWidget } from '../components/DonationWidget';
+// import { DonationWidget } from '../components/DonationWidget';
 
 const NAV_ITEMS = [
   { label: 'About', href: '#about' },
@@ -28,6 +28,7 @@ const JetBlueOptimizer = () => {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [showSavedConfigs, setShowSavedConfigs] = useState(false);
+  const [useImprovedAlgorithm, setUseImprovedAlgorithm] = useState(false);
 
   // Web worker optimization hook
   const {
@@ -61,7 +62,7 @@ const JetBlueOptimizer = () => {
     getCachedResult,
     isFromCache,
     clearCache
-  } = useOptimization(currentConfig);
+  } = useOptimization(currentConfig, useImprovedAlgorithm ? 'improved' : 'old');
 
   // SSR-friendly state
   const [isClient, setIsClient] = useState(false);
@@ -416,6 +417,49 @@ const JetBlueOptimizer = () => {
         <div className="flex flex-col lg:grid lg:grid-cols-10 gap-4 sm:gap-6 lg:gap-8">
           {/* Configuration Panel - Full width on mobile, 3 cols on desktop */}
           <div className="lg:col-span-3 space-y-3 sm:space-y-4 lg:space-y-6 order-1">
+            {/* Algorithm Toggle */}
+            {/* <ErrorBoundary>
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900 mb-1">Algorithm Version</h3>
+                    <p className="text-xs text-gray-600">
+                      {useImprovedAlgorithm ? 'Improved (Beta)' : 'Standard'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {useImprovedAlgorithm 
+                        ? 'New algorithm with better airport coverage and deterministic results'
+                        : 'Current stable algorithm'
+                      }
+                    </p>
+                  </div>
+                  <div className="ml-4">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={useImprovedAlgorithm}
+                        onChange={(e) => {
+                          setUseImprovedAlgorithm(e.target.checked);
+                          // Clear cache when switching algorithms
+                          clearCache();
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+                {useImprovedAlgorithm && (
+                  <div className="mt-3 p-2 bg-blue-50 rounded-md">
+                    <p className="text-xs text-blue-800">
+                      🚀 <strong>Beta Feature:</strong> This algorithm fixes the 15-airport cap and provides deterministic results. 
+                      Same input = same output every time.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ErrorBoundary> */}
+            
             <ErrorBoundary>
               <RouteForm
                 config={config}
@@ -428,9 +472,9 @@ const JetBlueOptimizer = () => {
             </ErrorBoundary>
             
             {/* Donation Widget */}
-            <ErrorBoundary>
+            {/* <ErrorBoundary>
               <DonationWidget variant="compact" />
-            </ErrorBoundary>
+            </ErrorBoundary> */}
 
           </div>
           {/* Results Panel - Full width on mobile, 7 cols on desktop */}
@@ -452,11 +496,11 @@ const JetBlueOptimizer = () => {
           <div className="text-center text-gray-500 text-sm">
             <p>&copy; 2025 George Z. All rights reserved.</p>
             <p className="mt-1">Optimize your flight routes to visit the most new airports efficiently.</p>
-            <p className="mt-2">
+            {/* <p className="mt-2">
               <a href="/settings" className="text-blue-600 hover:text-blue-800 transition-colors">
                 ⚙️ Settings · Algorithm · Cache · Performance
               </a>
-            </p>
+            </p> */}
           </div>
         </div>
       </div>

@@ -395,4 +395,50 @@ export const optimizeRoute = async (flights: Flight[], config: RouteConfig): Pro
     console.error('Optimization error:', error);
     return { error: `An error occurred during optimization: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
-}; 
+};
+
+/**
+ * Create a seeded random number generator for deterministic results
+ */
+export function createSeededRng(seedInit: number) {
+  // Simple LCG for deterministic results
+  let seed = (seedInit >>> 0) || 123456789;
+  return () => {
+    seed = (1103515245 * seed + 12345) >>> 0;
+    return seed / 0x100000000; // [0,1)
+  };
+}
+
+/**
+ * Bitset utilities for efficient visited airport tracking
+ */
+export function bitsetSet(bits: Uint32Array, idx: number) {
+  bits[idx >>> 5] |= (1 << (idx & 31));
+}
+
+export function bitsetHas(bits: Uint32Array, idx: number) {
+  return (bits[idx >>> 5] & (1 << (idx & 31))) !== 0;
+}
+
+export function bitsetIsSuperset(a: Uint32Array, b: Uint32Array) {
+  for (let i = 0; i < a.length; i++) {
+    if ((a[i] & b[i]) !== b[i]) return false;
+  }
+  return true;
+}
+
+export function cloneBits(bits: Uint32Array) {
+  return new Uint32Array(bits); // cheap copy
+}
+
+export function createBitset(size: number): Uint32Array {
+  return new Uint32Array(Math.ceil(size / 32));
+}
+
+// Simple stable sort helper (if you need stable grouping anywhere)
+export function stableSort<T>(arr: T[], cmp: (a: T, b: T) => number) {
+  return arr
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => cmp(a.v, b.v) || (a.i - b.i))
+    .map(x => x.v);
+} 
