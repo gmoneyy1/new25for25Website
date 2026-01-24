@@ -193,9 +193,11 @@ export const optimizeRoute = async (config: RouteConfig): Promise<Results> => {
  * @returns Promise with optimization results including cost alternatives
  * @throws {ApiError | NetworkError} On failure
  */
-export const hybridOptimizeRoute = async (config: RouteConfig): Promise<Results> => {
+export const hybridOptimizeRoute = async (config: RouteConfig, version?: 'old' | 'improved'): Promise<Results> => {
+  const url = version ? `${HYBRID_OPTIMIZE_URL}?version=${version}` : HYBRID_OPTIMIZE_URL;
+  
   const response = await fetchWithRetry(
-    HYBRID_OPTIMIZE_URL,
+    url,
     {
       method: 'POST',
       body: JSON.stringify(config),

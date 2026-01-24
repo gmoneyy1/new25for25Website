@@ -389,7 +389,7 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
   let iterations = 0;
   let bestAirportCount = 0;
   let noImprovementCount = 0;
-  const maxNoImprovement = 5000; // Stop if no improvement for 5000 iterations
+  const maxNoImprovement = 20000; // Stop if no improvement for 20000 iterations
 
   while (!pq.empty()) {
     iterations++;
@@ -414,7 +414,7 @@ function findAllOptimalRoutes(flights: Flight[], config: RouteConfig): { routes:
       }
       
       // Smart memory management: keep only the best routes
-      if (bestRoutes.size > 50000) {
+      if (bestRoutes.size > 100000) {
         console.warn(`Memory optimization: ${bestRoutes.size} states, pruning worst 50%`);
         const sortedEntries = Array.from(bestRoutes.entries())
           .sort((a, b) => b[1].visitedAirports.size - a[1].visitedAirports.size);

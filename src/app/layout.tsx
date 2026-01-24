@@ -24,10 +24,10 @@ export const metadata: Metadata = {
 const NAV_ITEMS = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
-  { label: 'Settings', href: '/settings' },
+  // { label: 'Settings', href: '/settings' },
   { label: 'Contact Us', href: '/contact' },
   { label: 'Connect', href: 'https://www.linkedin.com/in/george-zhan-10045a377', external: true },
-  { label: 'Donate', href: '/donate' },
+  // { label: 'Donate', href: '/donate' },
 ];
 
 function Navigation() {

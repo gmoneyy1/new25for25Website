@@ -383,7 +383,7 @@ export const pureAStarOptimize = async (
         
         // For A*, we can stop early if we find a route with a very high number of airports
         // But be less restrictive to allow exploration of longer routes
-        if (airportCount >= 12) { // Reasonable threshold for early termination
+        if (airportCount >= 35) { // Reasonable threshold for early termination
           console.log(`🎯 Found high-quality route (${airportCount} airports), stopping early`);
           break;
         }

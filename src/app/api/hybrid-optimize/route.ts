@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { hybridOptimizeRoute } from '@/lib/hybridOptimization';
+import { optimizeRouteImproved, optimizeRoute } from '@/lib/server/optimizationEngine';
 import { parseCsvText, validateFlightData } from '@/lib/server/csvParser';
 import { parseSeptemberDistancesCSV } from '@/lib/server/septemberDistancesParser';
 import { RouteConfig } from '@/lib/types';
@@ -9,6 +9,22 @@ import { RouteConfig } from '@/lib/types';
 export async function POST(request: NextRequest) {
   try {
     const config: RouteConfig = await request.json();
+    
+    // Check for version toggle - use improved algorithm if requested
+    const useImproved = (config as any)?.version === "improved" || 
+                       request.nextUrl.searchParams.get("version") === "improved";
+    
+    // Extract algorithm parameters from query string or body
+    const algorithmParams = {
+      seed: Number(request.nextUrl.searchParams.get("seed") ?? (config as any)?.seed ?? 42),
+      beamWidth: Number(request.nextUrl.searchParams.get("beamWidth") ?? (config as any)?.beamWidth ?? 96),
+      maxBeam: Number(request.nextUrl.searchParams.get("maxBeam") ?? (config as any)?.maxBeam ?? 224),
+      maxParetoPerAirport: Number(request.nextUrl.searchParams.get("maxParetoPerAirport") ?? (config as any)?.maxParetoPerAirport ?? 64),
+      stagnationLayers: Number(request.nextUrl.searchParams.get("stagnationLayers") ?? (config as any)?.stagnationLayers ?? 5),
+      minBeamToContinue: Number(request.nextUrl.searchParams.get("minBeamToContinue") ?? (config as any)?.minBeamToContinue ?? 12),
+      maxMillis: Number(request.nextUrl.searchParams.get("maxMillis") ?? (config as any)?.maxMillis ?? 7000),
+      randomRestarts: Number(request.nextUrl.searchParams.get("randomRestarts") ?? (config as any)?.randomRestarts ?? 0),
+    };
     
     // Validate required fields
     const requiredFields = ['startDate', 'startTime', 'endDate', 'endTime', 'startAirports', 'endAirports'];
@@ -95,8 +111,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`Loaded ${flights.length} flights for hybrid optimization`);
 
-    // Run hybrid optimization
-    const result = await hybridOptimizeRoute(flights, config);
+    // Run optimization with version toggle
+    const result = useImproved 
+      ? await optimizeRouteImproved(flights, config, algorithmParams)
+      : await optimizeRoute(flights, config);
     
     if ('error' in result) {
       console.error('Hybrid optimization error:', result.error);
@@ -104,9 +122,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Hybrid optimization completed successfully');
-    console.log(`Standard route: ${result.hybridResults?.standardRoute.airportCount} airports, $${result.hybridResults?.standardRoute.cost}`);
-    console.log(`Optimized route: ${result.hybridResults?.costOptimizedRoute.airportCount} airports, $${result.hybridResults?.costOptimizedRoute.cost}`);
-    console.log(`Savings: $${result.hybridResults?.costOptimizedRoute.savings}`);
+    if ('path' in result) {
+      console.log(`Found route: ${result.newAirportsVisited.length} new airports, ${result.totalFlights} flights, $${result.totalPrice}`);
+    }
 
     // Add dataset information to the result
     if ('path' in result) {
