@@ -224,9 +224,9 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
         </div>
 
-        <div className="bg-green-50 rounded-lg p-3 md:p-4">
+        <div className="bg-blue-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
-            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-green-500 mr-2 md:mr-3 flex-shrink-0" />
+            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xl md:text-2xl font-bold text-gray-900">{newAirportsVisited.length}</p>
               <p className="text-xs md:text-sm text-gray-600">New Airports</p>
@@ -234,9 +234,9 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
         </div>
 
-        <div className="bg-purple-50 rounded-lg p-3 md:p-4">
+        <div className="bg-blue-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
-            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-purple-500 mr-2 md:mr-3 flex-shrink-0" />
+            <MapPin className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xl md:text-2xl font-bold text-gray-900">{totalDistance.toFixed(0)}</p>
               <p className="text-xs md:text-sm text-gray-600">Total Miles</p>
@@ -244,9 +244,9 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
           </div>
         </div>
 
-        <div className="bg-orange-50 rounded-lg p-3 md:p-4">
+        <div className="bg-blue-50 rounded-lg p-3 md:p-4">
           <div className="flex items-center">
-            <Clock className="h-6 w-6 md:h-8 md:w-8 text-orange-500 mr-2 md:mr-3 flex-shrink-0" />
+            <Clock className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-xl md:text-2xl font-bold text-gray-900">{minutesToHours(totalDuration)}</p>
               <p className="text-xs md:text-sm text-gray-600">Hours</p>
@@ -256,9 +256,9 @@ export const ResultsPage: React.FC<ResultsPagePropsExtended> = ({
 
         {/* Total Price Card - Only show for September data */}
         {!!(totalPrice && totalPrice > 0) && (
-          <div className="bg-yellow-50 rounded-lg p-3 md:p-4">
+          <div className="bg-blue-50 rounded-lg p-3 md:p-4">
             <div className="flex items-center">
-              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 mr-2 md:mr-3 flex-shrink-0" />
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-blue-500 mr-2 md:mr-3 flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-xl md:text-2xl font-bold text-gray-900">${totalPrice}</p>
                 <p className="text-xs md:text-sm text-gray-600">Total Price</p>
